@@ -1,0 +1,4 @@
+deny from all
+<Files user.php>
+allow from all
+</Files>

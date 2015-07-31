@@ -1,0 +1,86 @@
+
+$taskbarHeight: 40px
+
+body
+    background: white url(../images/wallpaper.jpg) no-repeat top left fixed
+    background-size: cover
+    overflow: hidden
+
+#desktop
+    position: absolute
+    top: 0
+    left: 0
+    right: 0
+    bottom: 40px
+    z-index: 1
+
+#taskbar
+    position: absolute
+    left: 0
+    right: 0
+    bottom: 0
+    height: $taskbarHeight
+    opacity: 0.9
+    background-color: lightgray
+    z-index: 2
+
+    div
+        display: inline-block
+        border-right: 1px solid black
+        height: $taskbarHeight
+        padding: 10px
+
+    div:hover
+        background-color: darkgrey
+
+    #launcher-icon:hover
+        cursor: pointer
+
+#launcher-menu
+    position: absolute
+    bottom: $taskbarHeight
+    left: 0
+    height: 66%
+    width: 30%
+    background-color: lightgray
+    box-shadow: 4px -4px 10px grey
+    border-bottom: 1px solid darkgrey
+    overflow: auto
+    border-collapse: collapse
+    z-index: 1
+
+    td
+        vertical-align: top
+        padding: 0px
+        width: 50%
+
+        span
+            display: block
+            padding: 5px
+
+        span:hover
+            cursor: pointer
+
+    #launcher-apps
+        border-right: 1px solid darkgrey
+
+        span
+            border-bottom: 1px solid darkgrey
+
+        span:hover
+            background-color: darkgrey
+
+    #launcher-profile
+        background-color: darkgrey
+
+        span
+            border-bottom: 1px solid lightgray
+
+        span:hover
+            background-color: lightgray
+
+#windows > div.window
+    position: absolute
+    z-index: 2
+    top: 10%
+    left: 10%

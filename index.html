@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>NearOS - Client</title>
+    <link rel="stylesheet" type="text/css" href="css/metro.min.css" />
+    <link rel="stylesheet" type="text/css" href="css/metro-icons.min.css" />
+    <link rel="stylesheet" type="text/css" href="css/metro-responsive.min.css" />
+    <link rel="stylesheet" type="text/css" href="css/metro-schemes.min.css" />
+    <link rel="stylesheet" type="text/css" href="css/font-awesome.min.css" />
+    <link rel="stylesheet" type="text/css" href="css/desktop.css" />
+</head>
+<body>
+    <div id="desktop"></div>
+    <div id="taskbar">
+        <div id="launcher-icon"><i class="fa fa-circle-o-notch"></i></div>
+    </div>
+    <table id="launcher-menu">
+        <tr>
+            <td id="launcher-apps">
+                <!--<span><i class="fa fa-file-text-o"></i> Notepad</span>
+                <span><i class="fa fa-globe"></i> Browser</span>!-->
+            </td>
+            <td id="launcher-profile"></td>
+        </tr>
+    </table>
+    <div id="windows"></div>
+
+    <!-- templates !-->
+    <div id="window-template" style="display:none;">
+        <div class="window" style="display: inline-block; position: absolute; width: auto;">
+            <div class="window-caption">
+                <span class="window-caption-icon">
+                    <span class="mif-file-empty"></span>
+                </span>
+                <span class="window-caption-title">{{TITLE}}</span>
+                <span class="btn-min"></span>
+                <span class="btn-max"></span>
+                <span class="btn-close"></span>
+            </div>
+            <div class="window-content">{{CONTENT}}</div>
+        </div>
+    </div>
+    <div id="login">
+        <div class="login-form padding20 block-shadow" id="login" style="position:absolute;display:inline-block;background-color:white;z-index:2;top:20%;left:40%;">
+            <h1 class="text-light">Login to service</h1>
+            <hr class="thin"/><br />
+            <div class="input-control text full-size" data-role="input">
+                <label for="user_login">User name :</label>
+                <input type="text" data="username" />
+                <button class="button helper-button clear"><span class="mif-cross"></span></button>
+            </div>
+            <br />
+            <br />
+            <div class="input-control password full-size" data-role="input">
+                <label for="user_password">User password :</label>
+                <input type="password" data="password">
+                <button class="button helper-button reveal"><span class="mif-looks"></span></button>
+            </div>
+            <br />
+            <br />
+            <div class="form-actions">
+                <button type="submit" class="button primary" id="login-submit">Login</button>
+                <button type="button" class="button link">Cancel</button>
+            </div>
+        </div>
+        <div data-role="dialog" data-hide="2000" class="padding20" data-close-button="true" data-type="alert">
+           <h1>All fields are required</h1>
+           <p>Complete all fields to log in.</p>
+       </div>
+       <div data-role="dialog" data-hide="2000" class="padding20" data-close-button="true" data-type="alert">
+          <h1>Login failed</h1>
+          <p></p>
+      </div>
+    </div>
+    <script type="text/javascript" src="js/jquery-2.1.4.js"></script>
+    <script type="text/javascript" src="js/metro.min.js"></script>
+    <script type="text/javascript" src="js/client.js"></script>
+</body>
+</html>

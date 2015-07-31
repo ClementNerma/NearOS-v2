@@ -1,0 +1,105 @@
+/* line 4, ../sass/desktop.sass */
+body {
+  background: white url(../images/wallpaper.jpg) no-repeat top left fixed;
+  background-size: cover;
+  overflow: hidden;
+}
+
+/* line 9, ../sass/desktop.sass */
+#desktop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 40px;
+  z-index: 1;
+}
+
+/* line 17, ../sass/desktop.sass */
+#taskbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  opacity: 0.9;
+  background-color: lightgrey;
+  z-index: 2;
+}
+/* line 27, ../sass/desktop.sass */
+#taskbar div {
+  display: inline-block;
+  border-right: 1px solid black;
+  height: 40px;
+  padding: 10px;
+}
+/* line 33, ../sass/desktop.sass */
+#taskbar div:hover {
+  background-color: darkgrey;
+}
+/* line 36, ../sass/desktop.sass */
+#taskbar #launcher-icon:hover {
+  cursor: pointer;
+}
+
+/* line 39, ../sass/desktop.sass */
+#launcher-menu {
+  position: absolute;
+  bottom: 40px;
+  left: 0;
+  height: 66%;
+  width: 30%;
+  background-color: lightgrey;
+  box-shadow: 4px -4px 10px grey;
+  border-bottom: 1px solid darkgrey;
+  overflow: auto;
+  border-collapse: collapse;
+  z-index: 1;
+}
+/* line 52, ../sass/desktop.sass */
+#launcher-menu td {
+  vertical-align: top;
+  padding: 0px;
+  width: 50%;
+}
+/* line 57, ../sass/desktop.sass */
+#launcher-menu td span {
+  display: block;
+  padding: 5px;
+}
+/* line 61, ../sass/desktop.sass */
+#launcher-menu td span:hover {
+  cursor: pointer;
+}
+/* line 64, ../sass/desktop.sass */
+#launcher-menu #launcher-apps {
+  border-right: 1px solid darkgrey;
+}
+/* line 67, ../sass/desktop.sass */
+#launcher-menu #launcher-apps span {
+  border-bottom: 1px solid darkgrey;
+}
+/* line 70, ../sass/desktop.sass */
+#launcher-menu #launcher-apps span:hover {
+  background-color: darkgrey;
+}
+/* line 73, ../sass/desktop.sass */
+#launcher-menu #launcher-profile {
+  background-color: darkgrey;
+}
+/* line 76, ../sass/desktop.sass */
+#launcher-menu #launcher-profile span {
+  border-bottom: 1px solid lightgrey;
+}
+/* line 79, ../sass/desktop.sass */
+#launcher-menu #launcher-profile span:hover {
+  background-color: lightgrey;
+}
+
+/* line 82, ../sass/desktop.sass */
+#windows > div.window {
+  position: absolute;
+  z-index: 2;
+  top: 10%;
+  left: 10%;
+}
