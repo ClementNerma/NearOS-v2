@@ -3,6 +3,40 @@
 session_start();
 
 require 'config.php';
+require 'aes.class.php';
+require 'aes-ctr.class.php';
+
+$privateRSAKey = file_get_contents('rsa-private-4096.key');
+$publicRSAKey  = file_get_contents('rsa-public-4096.key');
+
+include('Crypt/RSA.php');
+
+function AES_Encrypt($plaintext, $key, $bytes = 256) {
+    return AesCtr::encrypt($plaintext, $key, $bytes);
+}
+
+function AES_Decrypt($ciphertext, $key, $bytes = 256) {
+    return AesCtr::decrypt($ciphertext, $key, $bytes);
+}
+
+function RSA_Encrypt($plaintext, $publicKey) {
+    $rsa = new Crypt_RSA();
+    $rsa->loadKey($publicKey);
+    $rsa->setEncryptionMode(CRYPT_RSA_ENCRYPTION_PKCS1);
+    return base64_encode($rsa->encrypt($plaintext));
+}
+
+function RSA_Decrypt($ciphertext, $privateKey) {
+    // if $ciphertext come from pidCrypt.JS, then the result of RSA_Decrypt is in base64 format
+    $rsa = new Crypt_RSA();
+    $rsa->loadKey($privateKey);
+    $ciphertext = str_replace(array("\r","\n", ' '), '', $ciphertext);
+    $ciphertext = base64_decode($ciphertext);
+    $rsa->setEncryptionMode(CRYPT_RSA_ENCRYPTION_PKCS1);
+    return $rsa->decrypt($ciphertext);
+}
+
+/*--------------------------*/
 
 const DS = DIRECTORY_SEPARATOR;
 
@@ -42,138 +76,239 @@ if(!isset($_SESSION['nearos']))
         'guest' => true
     );
 
-if(!isset($_GET['request']))
-    die('Missing request');
+if(!isset($_POST['request']))
+    died('Missing request');
 
-$request = $_GET['request'];
+$request = $_POST['request'];
 
 function needsLoggedIn() {
     if(isset($_SESSION['nearos']['guest']) && $_SESSION['nearos']['guest']) {
         header('HTTP/1.0 403 Forbidden');
-        die('You must be logged in !');
+        died('You must be logged in !');
+    }
+}
+
+function died($msg = '') {
+    global $request;
+
+    if((isset($_SESSION['nearos']['guest']) && $_SESSION['nearos']['guest']) || $request === 'login' || $request === '_login') {
+        // not logged in
+        die($msg);
+    } else {
+        // logged in
+        die(AES_Encrypt($msg, $_SESSION['nearos']['aes']));
     }
 }
 
 function _logged() {
-    die((isset($_SESSION['nearos']['guest']) && $_SESSION['nearos']['guest']) ? 'false' : 'true');
+    died((isset($_SESSION['nearos']['guest']) && $_SESSION['nearos']['guest']) ? 'false' : 'true');
 }
 
 function _user_session() {
-    die(json_encode($_SESSION['nearos']));
+    died(json_encode($_SESSION['nearos']));
 }
 
-function _login($username, $password) {
+function _login($username, $password, $aeskey) {
     global $config;
+    global $privateRSAKey;
+
     $userDir = 'users' . DS . $username;
 
     if(!preg_match('#^([a-zA-Z0-9_\-]+)$#', $username))
-        die('Wrong username or password');
+        died('Wrong username or password');
 
     if(!is_dir($userDir))
-        die('Wrong username or password');
+        died('Wrong username or password');
 
-    if(!is_file($userDir . DS . 'user.sys'))
-        die('Can\'t find user system informations. User account is corrupted. Please contact the webmaster.');
+    if(!is_file($userDir . DS . '.system'))
+        died('Can\'t find user system informations. User account is corrupted. Please contact the webmaster.');
 
     try {
-        $json = file_get_contents($userDir . DS . 'user.sys');
+        $json = file_get_contents($userDir . DS . '.system');
     }
 
     catch(Exception $e) {
-        die('Can\'t read user system informations. Please try again.');
+        died('Can\'t read user system informations. Please try again.');
     }
 
     $json = json_decode($json, true);
 
     if(!$json)
-        die('User system informations are corrupted. Please contact the webmaster.');
+        died('User system informations are corrupted. Please contact the webmaster.');
 
     if(!isset($json['password']))
-        die('Can\'t find user password in system informations. Please contact the webmaster.');
+        died('Can\'t find user password in system informations. Please contact the webmaster.');
 
     $password = hash_hmac($config['hash-algorithm'], $password, $password);
 
     if($json['password'] !== $password)
-        die('Wrong username or password');
+        died('Wrong username or password');
 
     $_SESSION['nearos'] = $json;
     $_SESSION['nearos']['username'] = $username;
+    $_SESSION['nearos']['aes'] = base64_decode(RSA_decrypt($aeskey, $privateRSAKey));
 
-    die('true');
+    died('true');
 }
 
-function _readfile($file) {
+function _readfile($path) {
     needsLoggedIn();
-    $file = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($file);
+    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
 
-    if(!is_file($file)) {
+    if(!is_file($path)) {
         header("HTTP/1.0 404 Not Found");
         exit(0);
     } else {
-        readfile($file);
-        exit(0);
+        died(file_get_contents($path));
     }
 }
 
-function _write_plain_file($file, $content) {
+function _write_plain_file($path, $content) {
     needsLoggedIn();
-    $file = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($file);
+    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
 
     try {
-        file_put_contents($file, $content);
-        die('true');
+        file_put_contents($path, $content);
+        died('true');
     }
 
     catch(Exception $e) {
         header($_SERVER['SERVER_PROTOCOL'] . ' 500 Internal Server Error', true, 500);
-        die('Internal server error');
+        died('Internal server error');
         exit(0);
     }
 }
 
-function _mkdir($dir) {
-    $dir = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($dir);
+function _remove_file($path) {
+    needsLoggedIn();
+    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
 
-    if(is_dir($dir))
-        die('true');
+    if(!is_file($path))
+        died('false');
 
     try {
-        mkdir($dir);
-        die('true');
+        unlink($path);
+        died('true');
     }
 
     catch(Exception $e) {
-        die('false');
+        died('false');
     }
 }
 
-function _dir_exists($dir) {
-    $dir = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($dir);
-    die(is_dir($dir) ? 'true' : 'false');
+function _mkdir($path) {
+    needsLoggedIn();
+    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+
+    if(is_dir($path))
+        died('true');
+
+    try {
+        mkdir($path);
+        died('true');
+    }
+
+    catch(Exception $e) {
+        died('false');
+    }
 }
 
-function _file_exists($file) {
-    $file = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($file);
-    die(is_file($file) ? 'true' : 'false');
+function _read_dir($path) {
+    needsLoggedIn();
+    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+
+    if(!is_dir($path))
+        died('false');
+
+    $dh = opendir($path);
+    $paths = array();
+
+    while (false !== ($pathname = readdir($dh))) {
+        if($pathname !== '.' && $pathname !== '..')
+            $paths[] = $pathname;
+    }
+
+    sort($paths);
+
+    died(json_encode($paths));
+}
+
+function _read_dir_files($path) {
+    needsLoggedIn();
+    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+
+    if(!is_dir($path))
+        died('false');
+
+    $dh = opendir($path);
+    $paths = array();
+
+    while (false !== ($pathname = readdir($dh))) {
+        if($pathname !== '.' && $pathname !== '..' && is_file($path . DS . $pathname))
+            $paths[] = $pathname;
+    }
+
+    sort($paths);
+
+    died(json_encode($paths));
+}
+
+function _read_dir_dirs($path) {
+    needsLoggedIn();
+    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+
+    if(!is_dir($path))
+        died('false');
+
+    $dh = opendir($path);
+    $paths = array();
+
+    while (false !== ($pathname = readdir($dh))) {
+        if($pathname !== '.' && $pathname !== '..' && is_dir($path . DS . $pathname))
+            $paths[] = $pathname;
+    }
+
+    sort($paths);
+
+    died(json_encode($paths));
+}
+
+function _dir_exists($path) {
+    needsLoggedIn();
+    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    died(is_dir($path) ? 'true' : 'false');
+}
+
+function _file_exists($path) {
+    needsLoggedIn();
+    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    died(is_file($path) ? 'true' : 'false');
 }
 
 function _exists($path) {
+    needsLoggedIn();
     $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
-    die(file_exists($path) ? 'true' : 'false');
+    died(file_exists($path) ? 'true' : 'false');
 }
 
-$request = '_' . $request;
+if(isset($_SESSION['nearos']) && isset($_SESSION['nearos']['aes']) && $request !== 'login')
+    $request = '_' . AES_Decrypt($request, $_SESSION['nearos']['aes']);
+else
+    $request = '_' . $request;
 
 if(function_exists($request)) {
     $args = get_func_argNames($request);
     $callArgs = array();
-    foreach($args as $i => $name) {
-        if(!isset($_GET[$name]))
-            die('Missing argument "' . $name . '" for request "' . substr($request, 1) . '"');
 
-        $callArgs[] = $_GET[$name];
+    foreach($args as $i => $name) {
+        if(!isset($_POST[$name]))
+            died('Missing argument "' . $name . '" for request "' . substr($request, 1) . '"');
+
+        $callArgs[] = (isset($_SESSION['nearos']) && isset($_SESSION['nearos']['aes']) && $request !== '_login')
+                     ? AES_Decrypt($_POST[$name], $_SESSION['nearos']['aes'])
+                     : $_POST[$name];
     }
 
-    die(call_user_func_array($request, $callArgs));
+    died(call_user_func_array($request, $callArgs));
 } else
-    die('Bad request');
+    died('Bad request');

@@ -42,8 +42,8 @@
         </div>
     </div>
     <div id="login">
-        <div class="login-form padding20 block-shadow" id="login" style="position:absolute;display:inline-block;background-color:white;z-index:2;top:20%;left:40%;">
-            <h1 class="text-light">Login to service</h1>
+        <div class="login-form padding20 block-shadow" style="position:absolute;display:inline-block;background-color:white;z-index:2;top:20%;left:40%;">
+            <h1 class="text-light">Login to account</h1>
             <hr class="thin"/><br />
             <div class="input-control text full-size" data-role="input">
                 <label for="user_login">User name :</label>
@@ -60,21 +60,64 @@
             <br />
             <br />
             <div class="form-actions">
-                <button type="submit" class="button primary" id="login-submit">Login</button>
-                <button type="button" class="button link">Cancel</button>
+                <button type="submit" class="button primary">Login</button>
+                <button type="button" class="button link" role="cancel">Cancel</button>
             </div>
         </div>
         <div data-role="dialog" data-hide="2000" class="padding20" data-close-button="true" data-type="alert">
            <h1>All fields are required</h1>
            <p>Complete all fields to log in.</p>
        </div>
-       <div data-role="dialog" data-hide="2000" class="padding20" data-close-button="true" data-type="alert">
+       <div data-role="dialog" class="padding20" data-close-button="true" data-type="alert">
           <h1>Login failed</h1>
           <p></p>
       </div>
     </div>
+    <div id="fatal" data-role="dialog" class="padding20" data-close-button="true" data-type="alert">
+       <h1></h1><p></p>
+   </div>
     <script type="text/javascript" src="js/jquery-2.1.4.js"></script>
     <script type="text/javascript" src="js/metro.min.js"></script>
-    <script type="text/javascript" src="js/client.js"></script>
+    <script type="text/javascript" src="js/extend-prototypes.js"></script>
+    <script type="text/javascript" src="js/pidCrypt/pidcrypt.js"></script>
+    <script type="text/javascript" src="js/pidCrypt/pidcrypt_util.js"></script>
+    <script type="text/javascript" src="js/pidCrypt/asn1.js"></script>
+    <script type="text/javascript" src="js/pidCrypt/jsbn.js"></script>
+    <script type="text/javascript" src="js/pidCrypt/rng.js"></script>
+    <script type="text/javascript" src="js/pidCrypt/prng4.js"></script>
+    <script type="text/javascript" src="js/pidCrypt/rsa.js"></script>
+    <script type="text/javascript" src="js/crypto/aes.js"></script>
+    <script type="text/javascript" src="js/crypto/aes-ctr.js"></script>
+    <script type="text/javascript">
+        /*
+        var package = {
+            name: 'System',
+            version: '0.1',
+            developpers: ['Clément Nerma'],
+            license: 'CC-BY-NC-ND-4.0',
+            permissions: {
+                files: ['write', 'read', 'remove', 'exists'],
+                directories: ['make', 'read', 'remove', 'exists']
+            },
+            access: ['/']
+        };
+        */
+
+        var package = {
+            name: 'System',
+            version: '0.1',
+            developpers: ['Clément Nerma'],
+            license: 'CC-BY-NC-ND-4.0',
+            permissions: {
+                files: ['*'],
+                directories: ['*']
+            },
+            access: ['/']
+        };
+
+        Object.fullFreeze(package);
+    </script>
+    <script type="text/javascript" src="js/system.js"></script>
+    <script type="text/javascript" src="js/startup.js"></script>
 </body>
 </html>

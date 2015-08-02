@@ -1,4 +1,9 @@
 deny from all
+
 <Files user.php>
+allow from all
+</Files>
+
+<Files rsa-public-4096.key>
 allow from all
 </Files>
