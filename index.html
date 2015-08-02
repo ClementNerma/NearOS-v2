@@ -11,17 +11,43 @@
     <link rel="stylesheet" type="text/css" href="css/desktop.css" />
 </head>
 <body>
-    <div id="desktop"></div>
+    <div id="desktop" class="listview set-border padding10 list-type-icons" data-role="listview" data-on-list-click="fs.open('/desktop/' + list.find('.list-title').text());"></div>
     <div id="taskbar">
         <div id="launcher-icon"><i class="fa fa-circle-o-notch"></i></div>
     </div>
     <table id="launcher-menu">
         <tr>
-            <td id="launcher-apps">
-                <!--<span><i class="fa fa-file-text-o"></i> Notepad</span>
-                <span><i class="fa fa-globe"></i> Browser</span>!-->
+            <!--<td id="launcher-apps">
+                <span><i class="fa fa-file-text-o"></i> Notepad</span>
+                <span><i class="fa fa-globe"></i> Browser</span>
+            </td>!-->
+            <td id="launcher-apps" class="listview set-border padding10" data-role="listview" data-on-list-click="launchApplication(list.find('.list-title').text());"></td>
+            <td id="launcher-profile" class="listview set-border padding10" data-role="listview" data-on-list-click="launchApplication('Explorer', {open: '/' + list.find('.list-title').text().toLocaleLowerCase()});">
+                <div class="list-group">
+                    <div class="list-group-content">
+                        <div class="list">
+                            <img src="images/folder-documents.png" class="list-icon">
+                            <span class="list-title">Documents</span>
+                        </div>
+                        <div class="list">
+                            <img src="images/folder-downloads.png" class="list-icon">
+                            <span class="list-title">Downloads</span>
+                        </div>
+                        <div class="list">
+                            <img src="images/folder-images.png" class="list-icon">
+                            <span class="list-title">Images</span>
+                        </div>
+                        <div class="list">
+                            <img src="images/folder-music.png" class="list-icon">
+                            <span class="list-title">Music</span>
+                        </div>
+                        <div class="list">
+                            <img src="images/folder-videos.png" class="list-icon">
+                            <span class="list-title">Videos</span>
+                        </div>
+                    </div>
+                </div>
             </td>
-            <td id="launcher-profile"></td>
         </tr>
     </table>
     <div id="windows"></div>
@@ -73,7 +99,10 @@
           <p></p>
       </div>
     </div>
-    <div id="fatal" data-role="dialog" class="padding20" data-close-button="true" data-type="alert">
+    <div id="__prompt" data-role="dialog" class="padding20" data-type="info">
+        <h1></h1><p></p>
+    </div>
+    <div id="__fatal" data-role="dialog" class="padding20" data-close-button="true" data-type="alert">
        <h1></h1><p></p>
    </div>
     <script type="text/javascript" src="js/jquery-2.1.4.js"></script>
@@ -89,20 +118,6 @@
     <script type="text/javascript" src="js/crypto/aes.js"></script>
     <script type="text/javascript" src="js/crypto/aes-ctr.js"></script>
     <script type="text/javascript">
-        /*
-        var package = {
-            name: 'System',
-            version: '0.1',
-            developpers: ['Clément Nerma'],
-            license: 'CC-BY-NC-ND-4.0',
-            permissions: {
-                files: ['write', 'read', 'remove', 'exists'],
-                directories: ['make', 'read', 'remove', 'exists']
-            },
-            access: ['/']
-        };
-        */
-
         var package = {
             name: 'System',
             version: '0.1',

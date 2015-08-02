@@ -1,0 +1,87 @@
+
+<div id="menu" class="fluent-menu" data-role="fluentmenu">
+    <ul class="tabs-holder">
+        <li class="active"><a href="#tab_file">File</a></li>
+    </ul>
+
+    <div class="tabs-content">
+        <div class="tab-panel" id="tab_file">
+            <div class="tab-panel-group">
+                <div class="tab-group-content">
+                    <div class="tab-content-segment">
+                        <button class="fluent-big-button dropdown-toggle">
+                            <span class="icon mif-files-empty"></span>
+                            <span class="label">Create</span>
+                        </button>
+                        <ul class="d-menu" data-role="dropdown" role="create-file">
+                            <li><a href="#" type="directory"><span class="mif-folder"></span> Directory</a></li>
+                            <li><a href="#" type=".txt"><span class="mif-file-text"></span> Text file</a></li>
+                        </ul>
+                    </div>
+                    <!--<div class="tab-content-segment">
+                        <button class="fluent-big-button">
+                            <span class="mif-cancel"></span>
+                            <span class="label">Delete</span>
+                        </button>
+                    </div>!-->
+                </div>
+                <div class="tab-group-caption">File</div>
+            </div>
+
+            <div class="tab-panel-group">
+                <div class="tab-group-content">
+                    <div class="input-control text full-size">
+                        <input type="text" id="dir" />
+                        <button class="button" id="search"><span class="mif-search"></span></button>
+                    </div>
+                    <div class="tab-content-segment">
+                        <button class="fluent-button dropdown-toggle">
+                            <span class="mif-eye on-left"></span>
+                            <span class="label">View</span>
+                        </button>
+                        <ul class="d-menu" data-role="dropdown" role="list-type">
+                            <li><a href="#" list-class="">List</a></li>
+                            <li><a href="#" list-class="icons">Icons</a></li>
+                            <li><a href="#" list-class="tiles">Tiles</a></li>
+                            <li><a href="#" list-class="listing">Miniatures</a></li>
+                        </ul>
+                    </div>
+                    <div class="tab-content-segment">
+                        <button class="fluent-button" id="go-parent-dir"><span class="mif-arrow-up"></span> Parent</button>
+                    </div>
+                </div>
+                <div class="tab-group-caption">View</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="panel" class="listview set-border padding10" data-role="listview" data-on-list-click="loadDir('/' + list.find('.list-title').text().toLocaleLowerCase());">
+    <div class="list-group">
+        <span class="list-group-toggle">Libraries</span>
+        <div class="list-group-content">
+            <div class="list">
+                <img src="images/folder-documents.png" class="list-icon">
+                <span class="list-title">Documents</span>
+            </div>
+            <div class="list">
+                <img src="images/folder-downloads.png" class="list-icon">
+                <span class="list-title">Downloads</span>
+            </div>
+            <div class="list">
+                <img src="images/folder-images.png" class="list-icon">
+                <span class="list-title">Images</span>
+            </div>
+            <div class="list">
+                <img src="images/folder-music.png" class="list-icon">
+                <span class="list-title">Music</span>
+            </div>
+            <div class="list">
+                <img src="images/folder-videos.png" class="list-icon">
+                <span class="list-title">Videos</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="files" class="listview set-border padding10 list-type-tiles" data-role="listview" data-on-list-click="loadItem(dir + '/' + list.find('.list-title').text())"></div>

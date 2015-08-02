@@ -1,0 +1,11 @@
+{
+    "name": "Explorer",
+    "version": "0.1",
+    "developpers": ["Clément Nerma"],
+    "license": "CC-BY-NC-ND-4.0",
+    "permissions": {
+        "files": ["write", "read", "remove", "exists"],
+        "directories": ["make", "read", "remove", "exists"]
+    },
+    "access": ["/"]
+}

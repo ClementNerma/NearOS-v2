@@ -1,5 +1,65 @@
 
-var pubRSA;
+var _launchingPackage = {}, _launchingArgs = {}, appID = 0;
+
+function launchApplication(name, args) {
+    if(!ready)
+        return console.log('[app launcher] Please wait the end of system\'s startup !');
+
+    if(!String.is(name) || !name.match(/^([a-zA-Z0-9_\- ]+)$/))
+        return console.error('[app launcher] Bad application name')
+
+    if(!fs.directoryExists('/apps/' + name))
+        return console.error('[app launcher] Application "' + name + '" not found', args);
+
+    if(!_launchingPackage[name]) {
+        var package = JSON.parse(fs.readFile('/apps/' + name + '/package.json'));
+        package.access.push('/apps/' + name);
+        Object.fullFreeze(package);
+        _launchingPackage[name] = package;
+    }
+
+    _launchingArgs[name] = args || {};
+    Object.fullFreeze(_launchingArgs[name]);
+
+    if(!('sandbox' in document.createElement('iframe')))
+        console.warn('[app launcher] The "sandbox" attribute is not supported by your browser.\nThis can cause several security problems.')
+
+    var win = app.windows.create({
+        title: name,
+        content: 'Loading...'
+    });
+
+    appID += 1;
+
+    win.find('.window-content:first').replaceWith(
+        $.create('iframe', {
+            src: 'app.html',
+            app: name,
+            class: 'window-content',
+            appID: appID,
+            sandbox: 'allow-scripts allow-same-origin'
+        }).css({
+            width: 800,
+            height: 400
+        }).on('load', function() {
+            var name = $(this).attr('app');
+
+            this.contentWindow.parent = '';
+            this.contentWindow.top    = '';
+            this.contentWindow.frameElement = '';
+
+            this.contentWindow.parentOpen  = app.fs.open;
+            this.contentWindow.appQuit     = function(appID) {
+                $('iframe[appID="' + appID + '"]').parent().remove();
+            };
+            this.contentWindow.appReady(AESKey, _launchingPackage[name], _launchingArgs[name], $(this).attr('appID'));
+        })
+    );
+}
+
+/* ----------------------------------------------------- */
+
+var pubRSA, AESKey, ready;
 
 $('#launcher-menu, #login').hide();
 
@@ -33,39 +93,57 @@ function readyLoggedIn(session) {
     $('#login').remove();
     $('#taskbar').show(1000);
 
-    var files = fs.readDir('desktop'),
-        ext, filename, icon;
+    ready = true;
+
+    var path = '/desktop';
+    var files = fs.readDirectory(path);
+
+    if(!files)
+        app.fatal('Can\'t load directory : "' + path + '"');
+
+    $('#desktop').html('');
+
+    // shortcuts .lnk must display them target name's !
 
     for(var i = 0; i < files.length; i += 1) {
-        if(fs.fileExists('desktop/' + files[i])) {
-            // file
-            ext = fs.extension(files[i]);
-
-            if(ext === 'lnk') {
-                // shortcut
-                icon = fs.icon(files[i], true);
-                filename = fs.shortcutTarget(files[i]);
-            } else {
-                // "normal" file
-                icon = fs.icon(files[i]);
-                filename = files[i];
-            }
-        } else {
-            // directory
-            filename = files[i];
-        }
-
         $('#desktop').append(
             $.create('div', {
-                class: 'shortcut',
+                class: 'list',
                 content: [
                     $.create('img', {
-                        src: icon
+                        src: fs.icon(path + '/' + files[i]),
+                        class: 'list-icon'
                     }),
-                    $.create('span').text(files[i])
+                    $.create('span', {
+                        class: 'list-title',
+                        content: files[i]
+                    })
                 ]
             })
         );
+    }
+
+    var apps = fs.readSubDirectories('/apps');
+
+    if(!apps)
+        app.fatal('Can\'t load applications\' directory');
+
+    for(var i = 0; i < apps.length; i += 1) {
+        $('#launcher-apps').append(
+            $.create('div', {
+                class: 'list',
+                content: [
+                    $.create('img', {
+                        src: app.reg.read('fs/application/icon'),
+                        class: 'list-icon'
+                    }),
+                    $.create('span', {
+                        class: 'list-title',
+                        content: apps[i]
+                    })
+                ]
+            })
+        )
     }
 }
 
@@ -123,6 +201,7 @@ function loginShow() {
                     app.fatal('Bad session', 'Server returned a bad session - Can\'t get system informations');
                 }
 
+                AESKey = key;
                 readyLoggedIn(session);
             }
         }

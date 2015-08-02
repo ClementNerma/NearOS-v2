@@ -1,10 +1,50 @@
 
-var app = new (function(package, AESKey) {
+var appQuestionCallback;
+
+var app = new (function(package, AESKey, args, appID) {
+
+    var _ID = appID;
+
+    var _appQuit = window.appQuit;
+
+    this.callArgs = args || {};
+    Object.fullFreeze(this.callArgs);
 
     var _AESKey = AESKey;
+    var _name = package.name;
+    var _events = {
+        createCrashSave: function() {
+            return null; // no crash save can be created
+        },
+
+        loadCrashSave: function(crashSave) {
+            return true;
+        },
+
+        respondingTest: function(val) {
+            return val * val;
+        },
+
+        quit: function() {
+            app.quit();
+        }
+    };
+
+    this.on = function(event, callback) {
+        if(callback && typeof callback === 'function')
+            _events[event] = callback;
+
+        return _events[event];
+    };
+
+    this.quit = function() {
+        _appQuit(_ID);
+    };
+
+    this.name = function() { return _name; };
 
     this.fatal = function(title, content) {
-        var node = $('#fatal');
+        var node = $('#__fatal');
 
         node.find('h1').text(title);
         node.find('p').html(content);
@@ -12,6 +52,47 @@ var app = new (function(package, AESKey) {
         node.data('dialog').open();
 
         throw new Error('[NearOS] ' + title + '\n' + content);
+    };
+
+    this.prompt = function(title, question, callback) {
+        if(appQuestionCallback)
+            return false;
+
+        options = {
+            showCancel: true,
+            inputType: 'text'
+        };
+
+        if(Object.is(title)) {
+            options = Object.merge(options, title);
+        } else {
+            options.title = title;
+            options.question = question;
+            options.callback = callback;
+        }
+
+        var node = $('#__prompt');
+
+        node.find('h1').text(options.title);
+        node.find('p').html((options.question ? options.question + '<br /><br />' : '') + '<div class="input-control ' + options.inputType + ' full-size"><input type="' + options.inputType + '" id="__app_prompt" /></div><br />' + (options.showCancel ? '<button class="button danger" role="cancel">Cancel</button>' : '') + '<button class="button primary" style="float:right;" role="validate">OK</button>');
+
+        appQuestionCallback = options.callback;
+
+        node.data('dialog').open();
+        node.find('p button[role="cancel"]').click(function() {
+            var callback = appQuestionCallback;
+            appQuestionCallback = false;
+            $('#__prompt').data('dialog').close();
+            callback(null);
+        });
+        node.find('p button[role="validate"]').click(function() {
+            var ans = $(this).parent().find('input:last').val();
+            var callback = appQuestionCallback;
+            appQuestionCallback = false;
+            $('#__prompt').data('dialog').close();
+            callback(ans);
+        });
+
     };
 
     this.hasAccess = function(permissions, access) {
@@ -73,7 +154,7 @@ var app = new (function(package, AESKey) {
         }
 
         if(needsPermissions && !_AESKey) {
-            console.error('[app:server] Can\'t do an action which needs privileges without user\'s password\'s hash !');
+            console.error('[app:server] Can\'t do an action which needs privileges without AES-256 encryption key !');
             return false;
         }
 
@@ -105,12 +186,22 @@ var app = new (function(package, AESKey) {
         /**if(_AESKey)
             console.warn(req.responseText, _AESKey);*/
 
-        return (req.status === 200 && req.readyState === 4)
-                                                          ? (_AESKey ? app.AES.decrypt(req.responseText, _AESKey) : req.responseText)
-                                                          : false;
+        try {
+            return (req.status === 200 && req.readyState === 4)
+                        ? (_AESKey ? app.AES.decrypt(req.responseText, _AESKey) : req.responseText)
+                        : false;
+        }
+
+        catch(e) {
+            return false;
+        }
     };
 
     this.fs = new (function(server) {
+
+        this.touchFile = function(path) {
+            return server('touchfile', {path: path}, ['files', 'write']) === 'true';
+        };
 
         this.writeFile = function(path, content) {
             return server('write_plain_file', {path: path, content: content}, ['files', 'write']) === 'true';
@@ -124,9 +215,27 @@ var app = new (function(package, AESKey) {
             return server('remove_file', {path: path}, ['files', 'delete']) === 'true';
         };
 
-        this.readDirectory = function(path) {
+        this.readDirectory = function(path, showHidden) {
             var ans = server('read_dir', {path: path}, ['directories', 'read']);
-            return ans ? JSON.parse(ans) : false;
+
+            if(!ans)
+                return false;
+
+            ans = JSON.parse(ans);
+
+            if(showHidden)
+                return ans;
+
+            // hide hidden files
+
+            var returns = [];
+
+            for(var i = 0; i < ans.length; i += 1)
+                if(ans[i].substr(0, 1) !== '.')
+                    returns.push(ans[i]);
+
+            return returns;
+
         };
 
         this.readDirectoryFiles = function(path) {
@@ -155,12 +264,104 @@ var app = new (function(package, AESKey) {
             return server('file_exists', {path: path}, ['files', 'exists']) === 'true';
         };
 
+        this.open = (window.parentOpen || function(path) {
+
+            path = this.normalize(path);
+
+            if(this.directoryExists(path)) {
+                // directory
+                return launchApplication(app.reg.read('fs/directory/open'), {open: path});
+            } else if(this.fileExists(path)) {
+                // file
+                var ext = this.extension(path);
+
+                if(ext === 'lnk') {
+                    try {
+                        var link = JSON.parse(this.readFile(path));
+
+                        if(link.path)
+                            return this.open(link.path);
+                        else if(link.app)
+                            return launchApplication(link.app, link.args || {});
+                        else
+                            return console.error('Bad shortcut : "' + path + '"');
+                    }
+
+                    catch(e) {
+                        return false;
+                    }
+                }
+
+                if(ext)
+                    return launchApplication(
+                        app.reg.read('fs/.' + ext + '/open')
+                     || app.reg.read('fs/unknown/open')
+                    , {open: path});
+                else
+                    return launchApplication(app.reg.read('fs/unknown/open'), {open: path});
+            } else {
+                // doesn't exists
+                return false;
+            }
+
+        });
+
+        this.resource = function(type, path, external) {
+
+            if(!external)
+                path = this.normalize('/apps/' + _name + '/' + path);
+
+            var resource = this.readFile(path);
+
+            if(resource === false) {
+                console.error('[app:' + name + '] Failed to load resource "' + path + '"');
+                return false;
+            }
+
+            switch(type.toLocaleLowerCase()) {
+                case 'html':
+                case 'html5':
+                case 'xhtml':
+                case 'document':
+                    $('#__frame').html(resource);
+                    break;
+
+                case 'js':
+                case 'javascript':
+                case 'ecmascript':
+                case 'jscript':
+                case 'script':
+                    window.eval(resource);
+                    break;
+
+                case 'css':
+                case 'css3':
+                case 'stylesheet':
+                    $('head:first').append(
+                        $.create('style', {
+                            type: 'text/css',
+                            content: resource
+                        })
+                    );
+                    break;
+
+                default:
+                    console.error('[app:' + _name + '] Unknown resource type : "' + type + '"');
+                    return false;
+                    break;
+            }
+
+            return true;
+
+        };
+
         /* Alias */
 
         this.readDir      = this.readDirectory;
         this.readDirFiles = this.readDirectoryFiles;
         this.readSubDirs  = this.readSubDirectories;
         this.mkdir        = this.makeDirectory;
+        this.load         = this.resource;
 
         /* Misc. functions */
 
@@ -169,6 +370,7 @@ var app = new (function(package, AESKey) {
                 safe  = [];
 
             for(var i = 0; i < parts.length; i += 1) {
+                parts[i] = parts[i].replace(/[^a-zA-Z0-9_\-\+\/ "'\,\.\;]/g, '');
                 if (!parts[i] || ('.' == parts[i])) {
                     continue;
                 } else if('..' == parts[i]) {
@@ -194,32 +396,97 @@ var app = new (function(package, AESKey) {
              );
         };
 
+        this.parent = function(path) {
+            path = this.normalize(path);
+
+            if(path.indexOf('/') === -1)
+                return '';
+            else {
+                path = path.split('/');
+                path.splice(path.length - 1, 1);
+                return path.join('/');
+            }
+        };
+
         this.extension = function(filename) {
             return filename.indexOf('.') !== -1 ? filename.substr(filename.lastIndexOf('.') + 1) : false;
         };
 
+        this.icon = function(path) {
+            // returns the image source (ex: "images/folder.png" or "data:image/png......")
+
+            if(path === false)
+                return false;
+
+            if(fs.directoryExists(path)) {
+                // directory
+                return app.reg.read('fs/directory/icon');
+            } else if(fs.fileExists(path)) {
+                // file
+                var ext = this.extension(path);
+
+                if(ext === 'lnk')
+                    return fs.icon(fs.shortcutTarget(path));
+
+                return ext ? (app.reg.read('fs/.' + ext + '/icon') || app.reg.read('fs/unknown/icon')) : app.reg.read('fs/unknown/icon');
+            } else {
+                // doesn't exists
+                return app.reg.read('fs/unknown/icon');
+            }
+        };
+
+        this.shortcutTarget = function(path) {
+            var file = this.readFile(path);
+
+            if(file === false)
+                return false;
+
+            try {
+                file = JSON.parse(file);
+            }
+
+            catch(e) {
+                return false;
+            }
+
+            if(typeof file.path === 'undefined')
+                return false;
+
+            return file.path;
+        };
+
     })(this.server);
 
-    this.windows = new (function() {
+    if(!window.parentFatal) {
+        this.windows = new (function() {
 
-        var _windows = [];
+            var _windows = [];
 
-        this.create = function(options) {
-            var window = $($('#window-template')
-                .html()
-                .replace(/\{\{TITLE\}\}/, options.title || 'Untitled')
-                .replace(/\{\{CONTENT\}\}/, options.content || ''));
+            this.create = function(options) {
+                var win = $($('#window-template')
+                    .html()
+                    .replace(/\{\{TITLE\}\}/, options.title || 'Untitled')
+                    .replace(/\{\{CONTENT\}\}/, options.content || ''));
 
-            $('#windows').append(window);
+                win.find('.btn-close:first').click(function() {
+                    var content = $(this).parent().parent().find('.window-content');
 
-            return window;
-        };
+                    if(content[0].tagName.toLocaleLowerCase() === 'iframe')
+                        return content[0].contentWindow.app.on('quit')();
+                    else
+                        content.parent().remove();
+                });
 
-        this.close = function(id) {
-            $('#windows div[wid=' + id + ']').remove();
-        };
+                $('#windows').append(win);
+                return win;
+            };
 
-    })();
+            this.close = function(id) {
+                $('#windows div[wid=' + id + ']').remove();
+            };
+
+        })();
+    }
 
     this.init = function(AESKey) {
         _AESKey = AESKey;
@@ -242,7 +509,7 @@ var app = new (function(package, AESKey) {
             this.write = function (entry, value) {
                 if (app.hasAccess(['files', 'write'], 'sys/reg')) {
                     var e = entry.split('/');
-                    var t = reg;
+                    var t = _reg;
 
                     for (var i = 0; i < e.length - 1; i++) {
                         if (!t[e[i]]) return false;
@@ -251,7 +518,7 @@ var app = new (function(package, AESKey) {
 
                     var o = t[e[e.length - 1]];
                     t[e[e.length - 1]] = value;
-                    if (!board.fs.writeFile('sys/reg', JSON.stringify(reg, null, 4))) {
+                    if (!app.fs.writeFile('sys/reg', JSON.stringify(reg, null, 4))) {
                         t[e[e.length - 1]] = o;
                         return false;
                     } else return true;
@@ -261,7 +528,7 @@ var app = new (function(package, AESKey) {
             this.remove = function (entry) {
                 if (app.hasAccess(['files', 'write'], 'sys/reg')) {
                     var e = entry.split('/');
-                    var t = reg;
+                    var t = _reg;
 
                     for (var i = 0; i < e.length - 1; i++) {
                         if (!t[e[i]]) return false;
@@ -271,7 +538,7 @@ var app = new (function(package, AESKey) {
                     var o = t[e[e.length - 1]];
                     if (!o) return true;
                     delete t[e[e.length - 1]];
-                    if (!board.fs.writeFile('sys/reg', JSON.stringify(reg))) {
+                    if (!app.fs.writeFile('sys/reg', JSON.stringify(reg))) {
                         t[e[e.length - 1]] = o;
                         return false;
                     } else return true;
@@ -280,7 +547,7 @@ var app = new (function(package, AESKey) {
 
             this.read = function (entry) {
                var e = entry.split('/');
-               var t = reg;
+               var t = _reg;
 
                for (var i = 0; i < e.length - 1; i++) {
                    if (!t[e[i]]) return t[e[i]];
@@ -435,8 +702,11 @@ var app = new (function(package, AESKey) {
 
     });
 
-})(package, window.AESKey);
+})(package, window.AESKey, window.callArgs, window.appID);
 
 delete window.AESKey;
+delete window.callArgs;
+delete window.appID;
+delete window.appQuit;
 
 var fs = app.fs; // file system alias

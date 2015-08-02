@@ -1,6 +1,1 @@
-{
-    "app": "Explorer",
-    "args": {
-        "directory": "/bin"
-    }
-}
+{"path":"/bin"}

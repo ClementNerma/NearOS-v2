@@ -1,6 +1,7 @@
 <?php
 
 session_start();
+ob_start();
 
 require 'config.php';
 require 'aes.class.php';
@@ -90,6 +91,7 @@ function needsLoggedIn() {
 
 function died($msg = '') {
     global $request;
+    $msg = ob_get_clean() . $msg;
 
     if((isset($_SESSION['nearos']['guest']) && $_SESSION['nearos']['guest']) || $request === 'login' || $request === '_login') {
         // not logged in
@@ -148,6 +150,13 @@ function _login($username, $password, $aeskey) {
     $_SESSION['nearos']['username'] = $username;
     $_SESSION['nearos']['aes'] = base64_decode(RSA_decrypt($aeskey, $privateRSAKey));
 
+    died('true');
+}
+
+function _touchfile($path) {
+    needsLoggedIn();
+    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    fopen($path, 'w');
     died('true');
 }
 
