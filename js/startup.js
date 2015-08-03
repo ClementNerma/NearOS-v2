@@ -117,7 +117,7 @@ function readyLoggedIn(session) {
                     $.create('span', {
                         class: 'list-title',
                         content: files[i]
-                    })
+                    }).css('font-size', '15px')
                 ]
             })
         );
@@ -165,6 +165,9 @@ $.ajax({
 });
 
 function loginShow() {
+    if(window.location.href.substr(0, 8) === 'https://')
+        $('#login-encrypt').attr('checked', false);
+
     $('#login').show().find('button[type="submit"]').on('click', function() {
         var parent = $(this).parent().parent().parent();
 
@@ -174,34 +177,40 @@ function loginShow() {
         if(!username || !password)
             parent.find('[data-role="dialog"]:first').data('dialog').open();
         else {
-            var key = '';
+            var key, cryptedAESKey;
 
-            for(var i = 0; i < 32; i += 1)
-                key += 'abcdefghijklmnopqrstuvwxyz0123456789'.substr(Math.randomInt(32) - 1, 1);
+            if($('#login-encrypt').is(':checked')) {
+                key = '';
 
-            var cryptedAESKey = app.RSA.encrypt(key, pubRSA);
+                for(var i = 0; i < 32; i += 1)
+                    key += 'abcdefghijklmnopqrstuvwxyz0123456789'.substr(Math.randomInt(32) - 1, 1);
+
+                cryptedAESKey = app.RSA.encrypt(key, pubRSA);
+            }
 
             var ans = app.server('login', {
                 username: username,
                 password: password,
-                aeskey  : cryptedAESKey
+                aeskey  : key ? cryptedAESKey : undefined
             });
 
             if(ans !== 'true')
                 parent.find('[data-role="dialog"]:last p').text(ans).parent().data('dialog').open();
             else {
                 console.info('Logged in !\nUsername : ' + username + '\nAES Key  : ' + key);
-                var request = app.AES.encrypt('user_session', key);
+                var request = key ? app.AES.encrypt('user_session', key) : 'user_session';
+                var response = key ? app.AES.decrypt(app.server(request), key) : app.server(request);
 
                 try {
-                    var session = JSON.parse(app.AES.decrypt(app.server(request), key));
+                    var session = JSON.parse(response);
                 }
 
                 catch(e) {
+                    console.error('Error during parsing session. Server said after request "' + request + '" :\n\n' + response + '\n\n' + e.stack);
                     app.fatal('Bad session', 'Server returned a bad session - Can\'t get system informations');
                 }
 
-                AESKey = key;
+                AESKey = session.aes;
                 readyLoggedIn(session);
             }
         }

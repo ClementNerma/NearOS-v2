@@ -153,7 +153,7 @@ var app = new (function(package, AESKey, args, appID) {
             }
         }
 
-        if(needsPermissions && !_AESKey) {
+        if(needsPermissions && typeof _AESKey === 'undefined') {
             console.error('[app:server] Can\'t do an action which needs privileges without AES-256 encryption key !');
             return false;
         }
@@ -182,9 +182,6 @@ var app = new (function(package, AESKey, args, appID) {
             dataType: 'text',
             data: data
         });
-
-        /**if(_AESKey)
-            console.warn(req.responseText, _AESKey);*/
 
         try {
             return (req.status === 200 && req.readyState === 4)

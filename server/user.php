@@ -1,5 +1,7 @@
 <?php
 
+$RSAKeyLength = 4096;
+
 session_start();
 ob_start();
 
@@ -7,8 +9,8 @@ require 'config.php';
 require 'aes.class.php';
 require 'aes-ctr.class.php';
 
-$privateRSAKey = file_get_contents('rsa-private-4096.key');
-$publicRSAKey  = file_get_contents('rsa-public-4096.key');
+$privateRSAKey = file_get_contents('rsa-private-' . $RSAKeyLength . '.key');
+$publicRSAKey  = file_get_contents('rsa-public-' . $RSAKeyLength . '.key');
 
 include('Crypt/RSA.php');
 
@@ -93,7 +95,7 @@ function died($msg = '') {
     global $request;
     $msg = ob_get_clean() . $msg;
 
-    if((isset($_SESSION['nearos']['guest']) && $_SESSION['nearos']['guest']) || $request === 'login' || $request === '_login') {
+    if((isset($_SESSION['nearos']['guest']) && $_SESSION['nearos']['guest']) || $request === 'login' || $request === '_login' || empty($_SESSION['nearos']['aes'])) {
         // not logged in
         die($msg);
     } else {
@@ -148,7 +150,12 @@ function _login($username, $password, $aeskey) {
 
     $_SESSION['nearos'] = $json;
     $_SESSION['nearos']['username'] = $username;
-    $_SESSION['nearos']['aes'] = base64_decode(RSA_decrypt($aeskey, $privateRSAKey));
+
+    if(!empty($aeskey)) {
+        $_SESSION['nearos']['aes'] = base64_decode(RSA_decrypt($aeskey, $privateRSAKey));
+    } else {
+        $_SESSION['nearos']['aes'] = '';
+    }
 
     died('true');
 }
@@ -300,7 +307,7 @@ function _exists($path) {
     died(file_exists($path) ? 'true' : 'false');
 }
 
-if(isset($_SESSION['nearos']) && isset($_SESSION['nearos']['aes']) && $request !== 'login')
+if(isset($_SESSION['nearos']) && isset($_SESSION['nearos']['aes']) && !empty($_SESSION['nearos']['aes']) && $request !== 'login')
     $request = '_' . AES_Decrypt($request, $_SESSION['nearos']['aes']);
 else
     $request = '_' . $request;
@@ -309,11 +316,14 @@ if(function_exists($request)) {
     $args = get_func_argNames($request);
     $callArgs = array();
 
+    if($request === '_login' && !isset($_POST['aeskey']))
+        $_POST['aeskey'] = '';
+
     foreach($args as $i => $name) {
         if(!isset($_POST[$name]))
             died('Missing argument "' . $name . '" for request "' . substr($request, 1) . '"');
 
-        $callArgs[] = (isset($_SESSION['nearos']) && isset($_SESSION['nearos']['aes']) && $request !== '_login')
+        $callArgs[] = (isset($_SESSION['nearos']) && isset($_SESSION['nearos']['aes']) && !empty($_SESSION['nearos']['aes']) && $request !== '_login')
                      ? AES_Decrypt($_POST[$name], $_SESSION['nearos']['aes'])
                      : $_POST[$name];
     }

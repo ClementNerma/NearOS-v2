@@ -96,7 +96,6 @@ $('#go-parent-dir').click(function() {
 });
 
 $('[role="list-type"] a').click(function() {
-    console.log('hello');
     var add = $(this).attr('list-class');
     $('#files').removeClass('list-type-icons list-type-tiles list-type-listing');
 
