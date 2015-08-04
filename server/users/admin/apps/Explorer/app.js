@@ -20,19 +20,7 @@ function loadDir(path) {
 
     for(var i = 0; i < files.length; i += 1) {
         $('#files').append(
-            $.create('div', {
-                class: 'list',
-                content: [
-                    $.create('img', {
-                        src: fs.icon(path + '/' + files[i]),
-                        class: 'list-icon'
-                    }),
-                    $.create('span', {
-                        class: 'list-title',
-                        content: files[i]
-                    })
-                ]
-            })
+            fs.htmlShortcut(path + '/' + files[i])
         );
     }
 }
@@ -101,6 +89,13 @@ $('[role="list-type"] a').click(function() {
 
     if(add)
         $('#files').addClass('list-type-' + add);
+});
+
+app.on('open', function(path, application, args) {
+    if(fs.directoryExists(path)) {
+        loadDir(path);
+        return false;
+    }
 });
 
 loadDir(app.callArgs.open || '/');

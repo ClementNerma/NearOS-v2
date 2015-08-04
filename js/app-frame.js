@@ -32,7 +32,7 @@ function systemReady() {
     delete window.aeskey;
     app.init(AESKey);
 
-    var source = fs.readFile('apps/Explorer/app.js');
+    var source = fs.readFile('apps/' + app.name() + '/app.js');
 
     if(source === false) {
         return app.fatal('Can\'t load application main file [app.js]. Application can\'t continue');

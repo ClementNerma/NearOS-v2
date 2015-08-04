@@ -3,15 +3,19 @@
 <head>
     <meta charset="utf-8" />
     <title>NearOS - Client</title>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
     <link rel="stylesheet" type="text/css" href="css/metro.min.css" />
     <link rel="stylesheet" type="text/css" href="css/metro-icons.min.css" />
     <link rel="stylesheet" type="text/css" href="css/metro-responsive.min.css" />
     <link rel="stylesheet" type="text/css" href="css/metro-schemes.min.css" />
     <link rel="stylesheet" type="text/css" href="css/font-awesome.min.css" />
     <link rel="stylesheet" type="text/css" href="css/desktop.css" />
+    <link rel="stylesheet" type="text/css" href="css/context-menu.css" />
 </head>
 <body>
-    <div id="desktop" class="listview set-border padding10 list-type-icons" data-role="listview" data-on-list-click="fs.open('/desktop/' + list.find('.list-title').text());"></div>
+    <!--<div id="desktop" class="listview set-border padding10 list-type-icons" data-role="listview" data-on-list-click="fs.open('/desktop/' + list.find('.list-title').attr('path'));"></div>!-->
+    <div id="desktop" class="listview set-border padding10 list-type-icons" data-role="listview"></div>
+
     <div id="taskbar">
         <div id="launcher-icon"><i class="fa fa-circle-o-notch"></i></div>
     </div>
@@ -107,10 +111,18 @@
     <div id="__prompt" data-role="dialog" class="padding20" data-type="info">
         <h1></h1><p></p>
     </div>
+    <div id="__confirm" data-role="dialog" class="padding20" data-type="info">
+        <h1></h1><p></p>
+    </div>
     <div id="__fatal" data-role="dialog" class="padding20" data-close-button="true" data-type="alert">
        <h1></h1><p></p>
-   </div>
+    </div>
+    <div id="__dialog" data-role="dialog" class="padding20" data-type="info">
+       <h1></h1><p></p>
+    </div>
+    <div id="__context"></div>
     <script type="text/javascript" src="js/jquery-2.1.4.js"></script>
+    <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
     <script type="text/javascript" src="js/metro.min.js"></script>
     <script type="text/javascript" src="js/extend-prototypes.js"></script>
     <script type="text/javascript" src="js/pidCrypt/pidcrypt.js"></script>
@@ -137,7 +149,7 @@
 
         Object.fullFreeze(package);
     </script>
-    <script type="text/javascript" src="js/system.js"></script>
     <script type="text/javascript" src="js/startup.js"></script>
+    <script type="text/javascript" src="js/system.js"></script>
 </body>
 </html>

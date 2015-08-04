@@ -1,5 +1,5 @@
 
-var _launchingPackage = {}, _launchingArgs = {}, appID = 0;
+var _launchingPackage = {}, _launchingArgs = {}, _launchingNotifies = {}, PID = 0;
 
 function launchApplication(name, args) {
     if(!ready)
@@ -11,11 +11,15 @@ function launchApplication(name, args) {
     if(!fs.directoryExists('/apps/' + name))
         return console.error('[app launcher] Application "' + name + '" not found', args);
 
+    var application;
+
     if(!_launchingPackage[name]) {
-        var package = JSON.parse(fs.readFile('/apps/' + name + '/package.json'));
-        package.access.push('/apps/' + name);
-        Object.fullFreeze(package);
-        _launchingPackage[name] = package;
+        application = JSON.parse(fs.readFile('/apps/' + name + '/package.json'));
+        application.access.push('/apps/' + name);
+        Object.fullFreeze(application);
+        _launchingPackage[name] = application;
+    } else {
+        application = _launchingPackage[name];
     }
 
     _launchingArgs[name] = args || {};
@@ -27,34 +31,62 @@ function launchApplication(name, args) {
     var win = app.windows.create({
         title: name,
         content: 'Loading...'
+    }).hide();
+
+    PID += 1;
+
+    _launchingNotifies[PID] = $.Notify({
+        keepOpen: true,
+        caption: 'Starting application...<span id="notifier_' + PID + '"></span>',
+        content: 'Starting <strong>' + application.name + '</strong> (PID <strong>' + PID + ')</strong>',
+        icon: '<img src="' + fs.applyProtocol(application.icon || app.reg.read('fs/application/icon')) + '" />'
     });
+    _launchingNotifies[PID]._notify.stop().css('opacity', 1);
 
-    appID += 1;
-
-    win.find('.window-content:first').replaceWith(
+    win
+    .css({
+        width: 800,
+        height: 450
+    })
+    .find('.window-content:first').replaceWith(
         $.create('iframe', {
             src: 'app.html',
             app: name,
             class: 'window-content',
-            appID: appID,
+            PID: PID,
             sandbox: 'allow-scripts allow-same-origin'
         }).css({
-            width: 800,
-            height: 400
+            height: '100%',
+            'box-sizing': 'border-box',
+            overflow: 'auto',
+            'background-color': 'white'
         }).on('load', function() {
             var name = $(this).attr('app');
 
             this.contentWindow.parent = '';
             this.contentWindow.top    = '';
-            this.contentWindow.frameElement = '';
 
-            this.contentWindow.parentOpen  = app.fs.open;
-            this.contentWindow.appQuit     = function(appID) {
-                $('iframe[appID="' + appID + '"]').parent().remove();
+            /***** The next command doesn't work and cause a big security problem */
+            this.contentWindow.frameElement = '';
+            /***** ******/
+
+            this.contentWindow.app_win = $(this).parent();
+
+            //this.contentWindow.parentOpen  = app.fs.open;
+            this.contentWindow.launchApplication = window.launchApplication;
+            this.contentWindow.appQuit     = function(PID) {
+                $('iframe[PID="' + PID + '"]').parent().fadeOut(500, function() {
+                    $(this).remove();
+                });
             };
-            this.contentWindow.appReady(AESKey, _launchingPackage[name], _launchingArgs[name], $(this).attr('appID'));
+
+            this.contentWindow.appReady(AESKey, _launchingPackage[name], _launchingArgs[name], $(this).attr('PID'));
+
+            _launchingNotifies[$(this).attr('PID')].close();
+            $(this).parent().fadeIn(1000);
         })
     );
+
 }
 
 /* ----------------------------------------------------- */
@@ -107,43 +139,43 @@ function readyLoggedIn(session) {
 
     for(var i = 0; i < files.length; i += 1) {
         $('#desktop').append(
-            $.create('div', {
-                class: 'list',
-                content: [
-                    $.create('img', {
-                        src: fs.icon(path + '/' + files[i]),
-                        class: 'list-icon'
-                    }),
-                    $.create('span', {
-                        class: 'list-title',
-                        content: files[i]
-                    }).css('font-size', '15px')
-                ]
-            })
+            fs.htmlShortcut(path + '/' + files[i])
         );
     }
 
-    var apps = fs.readSubDirectories('/apps');
+    var apps = fs.readSubDirectories('/apps'), appIcon;
 
     if(!apps)
         app.fatal('Can\'t load applications\' directory');
 
+    var hideApps = app.reg.read('launcher/hide-applications');
+
     for(var i = 0; i < apps.length; i += 1) {
-        $('#launcher-apps').append(
-            $.create('div', {
-                class: 'list',
-                content: [
-                    $.create('img', {
-                        src: app.reg.read('fs/application/icon'),
-                        class: 'list-icon'
-                    }),
-                    $.create('span', {
-                        class: 'list-title',
-                        content: apps[i]
-                    })
-                ]
-            })
-        )
+        appIcon = false;
+
+        try {
+            appIcon = JSON.parse(fs.readFile('apps/' + apps[i] + '/package.json')).icon;
+        }
+
+        catch(e) {}
+
+        if(hideApps.indexOf(apps[i]) === -1) {
+            $('#launcher-apps').append(
+                $.create('div', {
+                    class: 'list',
+                    content: [
+                        $.create('img', {
+                            src: appIcon || app.reg.read('fs/application/icon'),
+                            class: 'list-icon'
+                        }),
+                        $.create('span', {
+                            class: 'list-title',
+                            content: apps[i]
+                        })
+                    ]
+                })
+            );
+        }
     }
 }
 

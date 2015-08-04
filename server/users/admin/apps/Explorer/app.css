@@ -22,3 +22,9 @@
     width: 80%;
     border: none;
 }
+
+#context {
+    position: absolute;
+    z-index: 2;
+    display: none;
+}

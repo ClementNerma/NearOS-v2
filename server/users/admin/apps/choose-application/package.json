@@ -1,0 +1,12 @@
+{
+    "name": "choose-application",
+    "version": "0.1",
+    "icon": "images/application.png",
+    "developpers": ["Clément Nerma"],
+    "license": "CC-BY-NC-ND-4.0",
+    "permissions": {
+        "files": ["write"],
+        "directories": ["read"]
+    },
+    "access": ["/apps", ".registry"]
+}

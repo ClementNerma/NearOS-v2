@@ -1,7 +1,7 @@
 {
-    "name": "Explorer",
+    "name": "Notepad",
     "version": "0.1",
-    "icon": "images/app-explorer.png",
+    "icon": "images/app-notepad.png",
     "developpers": ["Clément Nerma"],
     "license": "CC-BY-NC-ND-4.0",
     "permissions": {

@@ -65,6 +65,13 @@ function normalizePath($path, $encoding="UTF-8") {
     return $path;
 }
 
+function formatPath($path) {
+    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = str_replace('/', DS, $path);
+    $path = str_replace('\\', DS, $path);
+    return $path;
+}
+
 function get_func_argNames($funcName) {
     $f = new ReflectionFunction($funcName);
     $result = array();
@@ -73,6 +80,9 @@ function get_func_argNames($funcName) {
     }
     return $result;
 }
+
+if(count($_GET))
+    $_POST = $_GET;
 
 if(!isset($_SESSION['nearos']))
     $_SESSION['nearos'] = array(
@@ -162,26 +172,37 @@ function _login($username, $password, $aeskey) {
 
 function _touchfile($path) {
     needsLoggedIn();
-    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = formatPath($path);
     fopen($path, 'w');
     died('true');
 }
 
-function _readfile($path) {
+function _readfile($path, $asIs, $download) {
     needsLoggedIn();
-    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = formatPath($path);
 
     if(!is_file($path)) {
         header("HTTP/1.0 404 Not Found");
         exit(0);
     } else {
-        died(file_get_contents($path));
+        if($asIs === 'true') {
+            readfile($path);
+
+            if($download === 'true') {
+                header('Content-Type: application/octet-stream');
+                header("Content-Transfer-Encoding: Binary");
+                header("Content-disposition: attachment; filename=\"" . basename($path) . "\"");
+            }
+
+            exit(0);
+        } else
+            died(file_get_contents($path));
     }
 }
 
 function _write_plain_file($path, $content) {
     needsLoggedIn();
-    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = formatPath($path);
 
     try {
         file_put_contents($path, $content);
@@ -197,7 +218,7 @@ function _write_plain_file($path, $content) {
 
 function _remove_file($path) {
     needsLoggedIn();
-    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = formatPath($path);
 
     if(!is_file($path))
         died('false');
@@ -214,7 +235,7 @@ function _remove_file($path) {
 
 function _mkdir($path) {
     needsLoggedIn();
-    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = formatPath($path);
 
     if(is_dir($path))
         died('true');
@@ -231,7 +252,7 @@ function _mkdir($path) {
 
 function _read_dir($path) {
     needsLoggedIn();
-    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = formatPath($path);
 
     if(!is_dir($path))
         died('false');
@@ -251,7 +272,7 @@ function _read_dir($path) {
 
 function _read_dir_files($path) {
     needsLoggedIn();
-    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = formatPath($path);
 
     if(!is_dir($path))
         died('false');
@@ -271,7 +292,7 @@ function _read_dir_files($path) {
 
 function _read_dir_dirs($path) {
     needsLoggedIn();
-    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = formatPath($path);
 
     if(!is_dir($path))
         died('false');
@@ -289,21 +310,42 @@ function _read_dir_dirs($path) {
     died(json_encode($paths));
 }
 
+function _rename($path, $newPath) {
+    needsLoggedIn();
+    $path = formatPath($path);
+    $newPath = formatPath($newPath);
+
+    if(!file_exists($path))
+        died('Source doesn\'t exists !');
+
+    if(file_exists($newPath))
+        died('Source already exists !');
+
+    try {
+        rename($path, $newPath);
+        died('true');
+    }
+
+    catch(Exception $e) {
+        died('Failed to rename');
+    }
+}
+
 function _dir_exists($path) {
     needsLoggedIn();
-    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = formatPath($path);
     died(is_dir($path) ? 'true' : 'false');
 }
 
 function _file_exists($path) {
     needsLoggedIn();
-    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = formatPath($path);
     died(is_file($path) ? 'true' : 'false');
 }
 
 function _exists($path) {
     needsLoggedIn();
-    $path = 'users' . DS . $_SESSION['nearos']['username'] . DS . normalizePath($path);
+    $path = formatPath($path);
     died(file_exists($path) ? 'true' : 'false');
 }
 

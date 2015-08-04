@@ -1,0 +1,33 @@
+/* line 2, ../sass/context-menu.sass */
+#__context, #__prompt, #__confirm, #__fatal, #__dialog {
+  white-space: pre-line;
+}
+
+/* line 5, ../sass/context-menu.sass */
+#__context {
+  position: absolute;
+  display: none;
+  min-width: 150px;
+  border: 1px solid lightgrey;
+  box-shadow: 3px 3px 10px gray;
+}
+/* line 12, ../sass/context-menu.sass */
+#__context div {
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  border: 1px transparent solid;
+  cursor: pointer;
+  border-bottom-color: #eeeeee;
+  position: relative;
+}
+/* line 21, ../sass/context-menu.sass */
+#__context div:last-child {
+  border-bottom-color: transparent;
+}
+/* line 24, ../sass/context-menu.sass */
+#__context div:hover {
+  cursor: default;
+  background-color: #e5f3fb;
+  border-color: #64b4db;
+}

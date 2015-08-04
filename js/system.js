@@ -1,5 +1,5 @@
 
-var appQuestionCallback;
+var appQuestionCallback, appConfirmCallback, appDialogCallback, appContextMenuTarget, appSysTarget;
 
 var app = new (function(package, AESKey, args, appID) {
 
@@ -25,8 +25,12 @@ var app = new (function(package, AESKey, args, appID) {
             return val * val;
         },
 
-        quit: function() {
-            app.quit();
+        open: function(path, application, args) {
+            return true;
+        },
+
+        exit: function() {
+            app.exit();
         }
     };
 
@@ -37,7 +41,7 @@ var app = new (function(package, AESKey, args, appID) {
         return _events[event];
     };
 
-    this.quit = function() {
+    this.exit = function() {
         _appQuit(_ID);
     };
 
@@ -52,6 +56,57 @@ var app = new (function(package, AESKey, args, appID) {
         node.data('dialog').open();
 
         throw new Error('[NearOS] ' + title + '\n' + content);
+    };
+
+    this.notify = function(title, message, type) {
+
+        if(!Object.is(title))
+            return $.Notify({
+                caption: title,
+                content: '<br />' + message,
+                type: type || 'info'
+            });
+        else
+            return $.Notify(title);
+
+    };
+
+    this.dialog = function(settings) {
+
+        if(appDialogCallback)
+            return false;
+
+        var modal = $('#__dialog');
+        modal.find('h1').text(settings.title);
+
+        var p = modal.find('p').text(settings.message || '');
+
+        appDialogCallback = {}, buttonID = 0;
+
+        var btns = Object.keys(settings.buttons).reverse(), button;
+
+        for(var j = 0; j < btns.length; j += 1) {
+            button    = settings.buttons[btns[j]];
+            buttonID += 1;
+
+            appDialogCallback[buttonID] = button.callback;
+
+            p.append(
+                $.create('button', {
+                    class: 'button' + (button.class ? ' ' + button.class : ''),
+                    content: btns[j],
+                    bid: buttonID
+                }).css('float', 'right').css('margin-right', '5px').on('click', function() {
+                    var callback = appDialogCallback[$(this).attr('bid')];
+                    appDialogCallback = null;
+                    $('#__dialog').data('dialog').close();
+                    callback();
+                })
+            );
+        }
+
+        modal.data('dialog').open();
+
     };
 
     this.prompt = function(title, question, callback) {
@@ -95,6 +150,52 @@ var app = new (function(package, AESKey, args, appID) {
 
     };
 
+    this.confirm = function(title, question, callback) {
+        if(appConfirmCallback)
+            return false;
+
+        var node = $('#__confirm');
+
+        node.find('h1').text(title);
+        node.find('p').html((question ? question + '<br /><br />' : '') + '<button class="button primary" style="float:right;" role="validate">OK</button><button class="button danger" role="cancel" style="float:right;margin-right:5px;">Cancel</button>');
+
+        appConfirmCallback = callback;
+
+        node.data('dialog').open();
+        node.find('p button[role="cancel"]').click(function() {
+            var callback = appConfirmCallback;
+            appConfirmCallback = false;
+            $('#__confirm').data('dialog').close();
+            callback(false);
+        });
+        node.find('p button[role="validate"]').click(function() {
+            var callback = appConfirmCallback;
+            appConfirmCallback = false;
+            $('#__confirm').data('dialog').close();
+            callback(true);
+        });
+
+    };
+
+    this.download = function(filename, content) {
+        var a =
+            $.create('a',{})
+            .hide();
+
+        $('body').append(a);
+        var blob = new Blob([content], {type: "octet/stream"}),
+            url = window.URL.createObjectURL(blob);
+
+        a
+            .attr('href', url)
+            .attr('download', filename)
+
+        a[0].click();
+
+        window.URL.revokeObjectURL(url);
+        a.remove();
+    };
+
     this.hasAccess = function(permissions, access) {
         if(Array.isArray(permissions[0])) {
             // needs multiple permissions
@@ -129,7 +230,7 @@ var app = new (function(package, AESKey, args, appID) {
         return true;
     };
 
-    this.server = function(request, data, needsPermissions) {
+    this.server = function(request, data, needsPermissions, toDataURL) {
         if(_AESKey) {
             var caller;
 
@@ -159,9 +260,17 @@ var app = new (function(package, AESKey, args, appID) {
         }
 
         if(needsPermissions && !app.hasAccess(needsPermissions, data.path)) {
-            // print caller name and say permissions are insufficient
-            console.error('[app.' + caller.join('.') + '] Can\'t access to "' + this.fs.normalize(data.path) + '" : Needs more privileges')
-            return false;
+            if(!(needsPermissions[0] === 'files' && needsPermissions[1] === 'read' && data.path === '.registry')) {
+                // print caller name and say permissions are insufficient
+                if(!(needsPermissions[0] === 'files' && needsPermissions[1] === 'read' && data.path && app.fs.isChild(data.path, '/apps/' + _name))) {
+                    if(arguments.callee.caller.arguments.callee.caller !== app.fs.applicationIcon) {
+                        if(arguments.callee.caller.arguments.callee.caller !== app.fs.open) {
+                            console.error('[app.' + caller.join('.') + '] Can\'t access to "' + this.fs.normalize(data.path) + '" : Needs more privileges')
+                            return false;
+                        }
+                    }
+                }
+            }
         }
 
         if(!data)
@@ -173,6 +282,16 @@ var app = new (function(package, AESKey, args, appID) {
             for(var i in data)
                 if(data.hasOwnProperty(i))
                     data[i] = app.AES.encrypt(data[i].toString(), _AESKey);
+        }
+
+        if(toDataURL) {
+            var dataURL = '';
+
+            for(var i in data)
+                if(data.hasOwnProperty(i))
+                    dataURL += '&' + i + '=' + data[i];
+
+            return window.location.href.replace(/\/app\.html$/, '') + (window.location.href.substr(-1) !== '/' ? '/' : '') + 'server/user.php?' + dataURL.substr(1);
         }
 
         var req = $.ajax({
@@ -194,7 +313,87 @@ var app = new (function(package, AESKey, args, appID) {
         }
     };
 
+    if(window.app_win)
+
+    this.window = new (function() {
+
+        var _window   = window.app_win;
+        var _titlebar = _window.find('> .window-caption:first');
+        var _iframe   = _window.find('> iframe:first');
+
+        this.showTitlebar = function() { _titlebar.show(); return true; };
+        this.hideTitlebar = function() { _titlebar.hide(); return true; };
+        this.toggleTitlebar = function() { _titlebar.toggle(); return true; };
+
+        this.width = function(width) {
+            if(!width)
+                return _window.css('width');
+
+            _window.css('width', width);
+            return true;
+        };
+
+        this.height = function(height) {
+            if(!height)
+                return _window.css('height');
+
+            _window.css('height', height);
+            return true;
+        };
+
+        this.show = function() { _window.show(); return true; };
+        this.hide = function() { _window.hide(); return true; };
+        this.toggle = function() { _window.toggle(); return true; };
+
+        this.close = function() {
+            return app.on('exit')();
+        };
+
+    })();
+
     this.fs = new (function(server) {
+
+        var _launchApplication = window.launchApplication;
+
+        this.launchApplication = function(name, args) {
+
+            if(arguments.callee.caller === app.fs.open) {
+                if(app.on('open')(args.open, name, args) === false)
+                    return false;
+            }
+
+            _launchApplication(name, args);
+
+        };
+
+        this.applicationIcon = function(name) {
+
+            try {
+                return JSON.parse(app.fs.readFile('/apps/' + name + '/package.json')).icon;
+            }
+
+            catch(e) {
+                return 'images/application.png';
+            }
+
+        };
+
+        this.applyProtocol = function(cmd, path) {
+
+            if(cmd.substr(0, 4) === 'gui:') {
+                if(!app.gui.hasOwnProperty(cmd.substr(4))) {
+                    app.notify('Unkown action', cmd.substr(4), 'alert');
+                    return '';
+                }
+
+                return app.gui[cmd.substr(4)](path);
+            } else if(cmd.substr(0, 5) === 'file:') {
+                return app.fs.readFile(cmd.substr(5), true, true);
+            } else {
+                return cmd;
+            }
+
+        };
 
         this.touchFile = function(path) {
             return server('touchfile', {path: path}, ['files', 'write']) === 'true';
@@ -204,12 +403,22 @@ var app = new (function(package, AESKey, args, appID) {
             return server('write_plain_file', {path: path, content: content}, ['files', 'write']) === 'true';
         };
 
-        this.readFile = function(path) {
-            return server('readfile', {path: path}, ['files', 'read']);
+        this.readFile = function(path, asIs, dataURL, download) {
+            var req = {
+                path: path,
+                asIs: asIs ? 'true' : 'false',
+                download: download ? 'true' : 'false'
+            };
+
+            return server('readfile', req, ['files', 'read'], dataURL);
         };
 
         this.removeFile = function(path) {
             return server('remove_file', {path: path}, ['files', 'delete']) === 'true';
+        };
+
+        this.rename = function(path, newPath) {
+            return server('rename', {path: path, newPath: newPath}, ['files', 'move']) === 'true';
         };
 
         this.readDirectory = function(path, showHidden) {
@@ -261,13 +470,13 @@ var app = new (function(package, AESKey, args, appID) {
             return server('file_exists', {path: path}, ['files', 'exists']) === 'true';
         };
 
-        this.open = (window.parentOpen || function(path) {
+        this.open = function(path) {
 
             path = this.normalize(path);
 
             if(this.directoryExists(path)) {
                 // directory
-                return launchApplication(app.reg.read('fs/directory/open'), {open: path});
+                return app.fs.launchApplication(app.reg.read('fs/directory/open'), {open: path});
             } else if(this.fileExists(path)) {
                 // file
                 var ext = this.extension(path);
@@ -279,7 +488,7 @@ var app = new (function(package, AESKey, args, appID) {
                         if(link.path)
                             return this.open(link.path);
                         else if(link.app)
-                            return launchApplication(link.app, link.args || {});
+                            return app.fs.launchApplication(link.app, link.args || {});
                         else
                             return console.error('Bad shortcut : "' + path + '"');
                     }
@@ -290,18 +499,18 @@ var app = new (function(package, AESKey, args, appID) {
                 }
 
                 if(ext)
-                    return launchApplication(
+                    return app.fs.launchApplication(
                         app.reg.read('fs/.' + ext + '/open')
                      || app.reg.read('fs/unknown/open')
                     , {open: path});
                 else
-                    return launchApplication(app.reg.read('fs/unknown/open'), {open: path});
+                    return app.fs.launchApplication(app.reg.read('fs/unknown/open'), {open: path});
             } else {
                 // doesn't exists
                 return false;
             }
 
-        });
+        };
 
         this.resource = function(type, path, external) {
 
@@ -352,6 +561,31 @@ var app = new (function(package, AESKey, args, appID) {
 
         };
 
+        this.downloadFile = function(path) {
+            /*var content = this.readFile(path);
+
+            if(path === false)
+                return false;
+
+            var filename = this.filename(path);
+
+            app.download(filename, content);
+            return true;*/
+
+            var dataURL = app.fs.readFile(path, true, true, true);
+
+            if(!dataURL)
+                return false;
+
+            $('body').append(
+                $.create('iframe', {
+                    src: dataURL
+                }).hide()
+            );
+
+            return true;
+        };
+
         /* Alias */
 
         this.readDir      = this.readDirectory;
@@ -360,6 +594,14 @@ var app = new (function(package, AESKey, args, appID) {
         this.mkdir        = this.makeDirectory;
         this.load         = this.resource;
 
+        this.renameFile      = this.rename;
+        this.renameDirectory = this.rename;
+        this.renameDir       = this.rename;
+        this.move            = this.rename;
+        this.moveFile        = this.rename;
+        this.moveDirectory   = this.rename;
+        this.moveDir         = this.rename;
+
         /* Misc. functions */
 
         this.normalize = function(path) {
@@ -367,7 +609,7 @@ var app = new (function(package, AESKey, args, appID) {
                 safe  = [];
 
             for(var i = 0; i < parts.length; i += 1) {
-                parts[i] = parts[i].replace(/[^a-zA-Z0-9_\-\+\/ "'\,\.\;]/g, '');
+                parts[i] = parts[i].replace(/[^a-zA-Z0-9_\-\+\/ "'\:\,\.\;\{\}\(\)\[\]]/g, '');
                 if (!parts[i] || ('.' == parts[i])) {
                     continue;
                 } else if('..' == parts[i]) {
@@ -405,6 +647,11 @@ var app = new (function(package, AESKey, args, appID) {
             }
         };
 
+        this.filename = function(path) {
+            path = this.normalize(path);
+            return path.indexOf('/') === -1 ? path : path.substr(path.lastIndexOf('/') + 1);
+        };
+
         this.extension = function(filename) {
             return filename.indexOf('.') !== -1 ? filename.substr(filename.lastIndexOf('.') + 1) : false;
         };
@@ -412,24 +659,33 @@ var app = new (function(package, AESKey, args, appID) {
         this.icon = function(path) {
             // returns the image source (ex: "images/folder.png" or "data:image/png......")
 
-            if(path === false)
-                return false;
+            function icon() {
+                if(path === false)
+                    return false;
 
-            if(fs.directoryExists(path)) {
-                // directory
-                return app.reg.read('fs/directory/icon');
-            } else if(fs.fileExists(path)) {
-                // file
-                var ext = this.extension(path);
+                if(path.substr(0, 4) === 'app:') {
+                    return app.fs.applicationIcon(path.substr(4));
+                }
 
-                if(ext === 'lnk')
-                    return fs.icon(fs.shortcutTarget(path));
+                if(fs.directoryExists(path)) {
+                    // directory
+                    return app.reg.read('fs/directory/icon');
+                } else if(fs.fileExists(path)) {
+                    // file
+                    var ext = app.fs.extension(path);
 
-                return ext ? (app.reg.read('fs/.' + ext + '/icon') || app.reg.read('fs/unknown/icon')) : app.reg.read('fs/unknown/icon');
-            } else {
-                // doesn't exists
-                return app.reg.read('fs/unknown/icon');
+                    if(ext === 'lnk')
+                        return app.fs.icon(fs.shortcutTarget(path));
+
+                    return ext ? (app.reg.read('fs/.' + ext + '/icon') || app.reg.read('fs/unknown/icon')) : app.reg.read('fs/unknown/icon');
+                } else {
+                    // doesn't exists
+                    return app.reg.read('fs/unknown/icon');
+                }
             }
+
+            return app.fs.applyProtocol(icon(), path);
+
         };
 
         this.shortcutTarget = function(path) {
@@ -452,6 +708,72 @@ var app = new (function(package, AESKey, args, appID) {
             return file.path;
         };
 
+        this.resolveContextMenu = function(action) {
+            $('#__context').hide();
+            app.fs.applyProtocol(action, appContextMenuTarget);
+        };
+
+        this.htmlShortcut = function(path) {
+            var filename = app.fs.filename(path);
+
+            return $.create('div', {
+                class: 'list',
+                content: [
+                    $.create('img', {
+                        src: fs.icon(path),
+                        class: 'list-icon'
+                    }),
+                    $.create('span', {
+                        class: 'list-title',
+                        content: path.substr(0,4)==='app:' ? path.substr(4) : (fs.directoryExists(path) ? filename : filename.replace(/\.lnk$/, '')),
+                        path: filename,
+                        fullpath: path
+                    })
+                ]
+            }).bind('click', function() {
+                app.fs.open($(this).find('.list-title').attr('fullpath'));
+            }).contextmenu(function(e) {
+                if(e.preventDefault)
+                    e.preventDefault();
+
+                var filename = $(this).find('.list-title').attr('path');
+                var path     = $(this).find('.list-title').attr('fullpath');
+
+                appContextMenuTarget = path;
+
+                $('#__context').html('');
+
+                var menu;
+
+                if(fs.directoryExists(path))
+                    menu = app.reg.read('fs/directory/read');
+                else if(fs.fileExists(path))
+                    menu = (app.reg.read('fs/.' + app.fs.extension(filename) + '/context') || []).concat(app.reg.read('fs/file/context'))
+                else
+                    return false;
+
+                for(var i = 0; i < menu.length; i += 1) {
+                    $('#__context').append(
+                        $.create('div', {
+                            content: menu[i].title,
+                            action: menu[i].path
+                        }).click(function() {
+                            app.fs.resolveContextMenu($(this).attr('action'));
+                        })
+                    )
+                }
+
+                $('#__context').css({
+                    top: event.clientY,
+                    left: event.clientX,
+                    display: 'inline-block',
+                    width: 'auto',
+                    'z-index': 999,
+                    'background-color': 'white'
+                });
+            });
+        };
+
     })(this.server);
 
     if(!window.parentFatal) {
@@ -465,11 +787,13 @@ var app = new (function(package, AESKey, args, appID) {
                     .replace(/\{\{TITLE\}\}/, options.title || 'Untitled')
                     .replace(/\{\{CONTENT\}\}/, options.content || ''));
 
+                win.draggable().resizable();
+
                 win.find('.btn-close:first').click(function() {
                     var content = $(this).parent().parent().find('.window-content');
 
                     if(content[0].tagName.toLocaleLowerCase() === 'iframe')
-                        return content[0].contentWindow.app.on('quit')();
+                        return content[0].contentWindow.app.on('exit')();
                     else
                         content.parent().remove();
                 });
@@ -504,18 +828,18 @@ var app = new (function(package, AESKey, args, appID) {
             }
 
             this.write = function (entry, value) {
-                if (app.hasAccess(['files', 'write'], 'sys/reg')) {
+                if (app.hasAccess(['files', 'write'], '.registry')) {
                     var e = entry.split('/');
                     var t = _reg;
 
                     for (var i = 0; i < e.length - 1; i++) {
-                        if (!t[e[i]]) return false;
+                        if (!t[e[i]]) t[e[i]] = {};
                         t = t[e[i]];
                     }
 
                     var o = t[e[e.length - 1]];
                     t[e[e.length - 1]] = value;
-                    if (!app.fs.writeFile('sys/reg', JSON.stringify(reg, null, 4))) {
+                    if (!app.fs.writeFile('.registry', JSON.stringify(_reg, null, 4))) {
                         t[e[e.length - 1]] = o;
                         return false;
                     } else return true;
@@ -523,7 +847,7 @@ var app = new (function(package, AESKey, args, appID) {
             };
 
             this.remove = function (entry) {
-                if (app.hasAccess(['files', 'write'], 'sys/reg')) {
+                if (app.hasAccess(['files', 'write'], '.registry')) {
                     var e = entry.split('/');
                     var t = _reg;
 
@@ -535,7 +859,7 @@ var app = new (function(package, AESKey, args, appID) {
                     var o = t[e[e.length - 1]];
                     if (!o) return true;
                     delete t[e[e.length - 1]];
-                    if (!app.fs.writeFile('sys/reg', JSON.stringify(reg))) {
+                    if (!app.fs.writeFile('.registry', JSON.stringify(reg))) {
                         t[e[e.length - 1]] = o;
                         return false;
                     } else return true;
@@ -699,6 +1023,36 @@ var app = new (function(package, AESKey, args, appID) {
 
     });
 
+    this.gui = new (function() {
+
+        this.directoryIcon = function(path) {
+            var d = app.fs.readDir(path);
+            return d.length ? 'images/folder-contains.png' : 'images/folder-empty.png';
+        };
+
+        this.imageSelfSource = function(path) {
+            return app.reg.read('save-bandwidth') ? 'images/file-unknown.png' : app.fs.readFile(path, true, true);
+        };
+
+        this.removeFile = function(path) {
+            appSysTarget = path;
+
+            app.confirm('Delete', 'Do you really want to delete this file ?\n\n' + path + '\n\nIt can\'t be recovered !', function(bool) {
+                if(bool) {
+                    if(!app.fs.removeFile(appSysTarget))
+                        app.fatal('Error', 'Failed to delete file :\n\n' + appSysTarget);
+                    else
+                        app.notify('File deleted', appSysTarget, 'success');
+                }
+            });
+        };
+
+        this.downloadFile = function(path) {
+            app.fs.downloadFile(path);
+        };
+
+    })();
+
 })(package, window.AESKey, window.callArgs, window.appID);
 
 delete window.AESKey;
@@ -707,3 +1061,16 @@ delete window.appID;
 delete window.appQuit;
 
 var fs = app.fs; // file system alias
+
+// context menu plugin
+
+var contextMenuHover = false;
+
+$('#__context').on('mouseenter', function() { contextMenuHover = true ; });
+$('#__context').on('mouseleave', function() { contextMenuHover = false; });
+$('body').on('click', function() {
+    if(!contextMenuHover)
+        $('#__context').hide();
+});
+
+delete window.app_win;

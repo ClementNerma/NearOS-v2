@@ -1,4 +1,17 @@
 {
+    "save-bandwidth": false,
+
+    "launcher": {
+        "hide-applications": [
+            "choose-application"
+        ]
+    },
+
+    "associate-application": {
+        "ignore": [
+            "choose-application"
+        ]
+    },
     "fs": {
         "application": {
             "type": "application",
@@ -6,97 +19,104 @@
             "context": [
                 {
                     "title": "Launch",
-                    "path": "sys:launchApplication"
+                    "path": "gui:launchApplication"
                 },
                 {
                     "title": "Uninstall",
-                    "path": "sys:uninstallApplication"
+                    "path": "gui:uninstallApplication"
                 },
                 {
                     "title": "Properties",
-                    "path": "sys:applicationProperties"
+                    "path": "gui:applicationProperties"
                 }
             ]
         },
-
         "directory": {
             "open": "Explorer",
             "type": "directory",
-            "icon": "images/folder.png",
+            "icon": "gui:directoryIcon",
             "context": [
                 {
                     "title": "Rename",
-                    "path": "sys:rename"
+                    "path": "gui:rename"
                 },
                 {
                     "title": "Delete",
-                    "path": "sys:removeDirectory"
+                    "path": "gui:removeDirectory"
                 },
                 {
                     "title": "Properties",
-                    "path": "sys:directoryProperties"
+                    "path": "gui:directoryProperties"
                 }
             ]
         },
-
         "file": {
             "type": "file",
             "context": [
                 {
+                    "title": "Download",
+                    "path": "gui:downloadFile"
+                },
+                {
                     "title": "Rename",
-                    "path": "sys:rename"
+                    "path": "gui:rename"
                 },
                 {
                     "title": "Delete",
-                    "path": "sys:removeFile"
+                    "path": "gui:removeFile"
                 },
                 {
                     "title": "Properties",
-                    "path": "sys:fileProperties"
+                    "path": "gui:fileProperties"
                 }
             ]
         },
-
         "unknown": {
             "open": "choose-application",
             "icon": "images/file-unknown.png",
             "language": "plain"
         },
-
         ".txt": {
             "open": "Notepad",
             "icon": "images/file-text.png",
             "language": "plain"
         },
-
         ".html": {
             "open": "Notepad",
             "icon": "images/file-html.png",
             "language": "html"
         },
-
         ".css": {
             "open": "Notepad",
             "icon": "images/file-css.png",
             "language": "css"
         },
-
         ".js": {
             "open": "Notepad",
             "icon": "images/file-js.png",
             "language": "javascript"
         },
-
         ".json": {
             "open": "Notepad",
             "icon": "images/file-json.png",
             "language": "json"
         },
-
         ".xml": {
             "open": "Notepad",
             "icon": "images/file-xml.png",
             "language": "xml"
+        },
+        ".png": {
+            "icon": "gui:imageSelfSource"
+        },
+        ".jpg": {
+            "icon": "gui:imageSelfSource"
+        },
+        ".bmp": {
+            "icon": "gui:imageSelfSource"
+        },
+        ".gif": {
+            "icon": "gui:imageSelfSource"
         }
     }
 }
