@@ -73,6 +73,16 @@ String.is = function(str) {
     return (typeof str === 'string');
 };
 
+String.cutHTML = function(str) {
+    return str
+        .replace(/</g, '')
+        .replace(/>/g, '');
+};
+
+String.prototype.cutHTML = function() {
+    return String.cutHTML(this);
+};
+
 Math.randomInt = function(max) {
     return Math.floor(Math.random() * max) + 1;
 };

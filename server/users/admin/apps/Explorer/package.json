@@ -1,6 +1,7 @@
 {
     "name": "Explorer",
     "version": "0.1",
+    "description": "Manage your files",
     "icon": "images/app-explorer.png",
     "developpers": ["Clément Nerma"],
     "license": "CC-BY-NC-ND-4.0",

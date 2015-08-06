@@ -1,16 +1,18 @@
 
-var appQuestionCallback, appConfirmCallback, appDialogCallback, appContextMenuTarget, appSysTarget;
+var appQuestionCallback, appConfirmCallback, appDialogCallback, appContextMenuTarget, appSysTarget, windowsZIndex = 5;
+var appWinID = 0;
 
 var app = new (function(package, AESKey, args, appID) {
 
     var _ID = appID;
-
+    var _system;
     var _appQuit = window.appQuit;
 
     this.callArgs = args || {};
     Object.fullFreeze(this.callArgs);
 
     var _AESKey = AESKey;
+    var _package = package;
     var _name = package.name;
     var _events = {
         createCrashSave: function() {
@@ -46,6 +48,11 @@ var app = new (function(package, AESKey, args, appID) {
     };
 
     this.name = function() { return _name; };
+    this.package = function() { return _package; };
+
+    this.securityIssue = function(code) {
+        return app.fatal('Security issue detected !', 'A security issue has been detected. The running task has been aborted.<br />Please advertise the developpers about this issue using this link :<br /><br /><a href="mailto:clement.nerma@gmail.com?subject=NearOS%20Security%20Issue&body=A security issue has been detected in NearOS (code : ' + code + ').">Send an email</a><br /><br />Or send manually an email to <strong>clement.nerma@gmail.com</strong> and specify the following security issue code : <strong>' + code + '</strong><br /><br />Thank you very much !');
+    };
 
     this.fatal = function(title, content) {
         var node = $('#__fatal');
@@ -134,13 +141,13 @@ var app = new (function(package, AESKey, args, appID) {
         appQuestionCallback = options.callback;
 
         node.data('dialog').open();
-        node.find('p button[role="cancel"]').click(function() {
+        node.find('p button[role="cancel"]').on('click', function() {
             var callback = appQuestionCallback;
             appQuestionCallback = false;
             $('#__prompt').data('dialog').close();
             callback(null);
         });
-        node.find('p button[role="validate"]').click(function() {
+        node.find('p button[role="validate"]').on('click', function() {
             var ans = $(this).parent().find('input:last').val();
             var callback = appQuestionCallback;
             appQuestionCallback = false;
@@ -260,13 +267,15 @@ var app = new (function(package, AESKey, args, appID) {
         }
 
         if(needsPermissions && !app.hasAccess(needsPermissions, data.path)) {
-            if(!(needsPermissions[0] === 'files' && needsPermissions[1] === 'read' && data.path === '.registry')) {
-                // print caller name and say permissions are insufficient
-                if(!(needsPermissions[0] === 'files' && needsPermissions[1] === 'read' && data.path && app.fs.isChild(data.path, '/apps/' + _name))) {
-                    if(arguments.callee.caller.arguments.callee.caller !== app.fs.applicationIcon) {
-                        if(arguments.callee.caller.arguments.callee.caller !== app.fs.open) {
-                            console.error('[app.' + caller.join('.') + '] Can\'t access to "' + this.fs.normalize(data.path) + '" : Needs more privileges')
-                            return false;
+            if(arguments.callee.caller.arguments.callee.caller !== app.init) {
+                if(!(needsPermissions[0] === 'files' && needsPermissions[1] === 'read' && data.path === '.registry')) {
+                    // print caller name and say permissions are insufficient
+                    if(!(needsPermissions[0] === 'files' && needsPermissions[1] === 'read' && data.path && app.fs.isChild(data.path, '/apps/' + _name))) {
+                        if(arguments.callee.caller.arguments.callee.caller !== app.fs.applicationIcon) {
+                            if(arguments.callee.caller.arguments.callee.caller !== app.fs.open) {
+                                console.error('[app.' + caller.join('.') + '] Can\'t access to "' + this.fs.normalize(data.path) + '" : Needs more privileges')
+                                return false;
+                            }
                         }
                     }
                 }
@@ -313,17 +322,34 @@ var app = new (function(package, AESKey, args, appID) {
         }
     };
 
+    this.user = function(property) {
+
+        if(this.hasAccess(['user', property]))
+            return _system[property];
+
+        console.error('Can\'t get user information : "' + property + '" : Insufficient privileges');
+        return false;
+
+    };
+
     if(window.app_win)
 
     this.window = new (function() {
 
         var _window   = window.app_win;
-        var _titlebar = _window.find('> .window-caption:first');
+        var _titlebar = _window.find('> .window-caption:first > .window-caption-title:first');
         var _iframe   = _window.find('> iframe:first');
 
-        this.showTitlebar = function() { _titlebar.show(); return true; };
-        this.hideTitlebar = function() { _titlebar.hide(); return true; };
-        this.toggleTitlebar = function() { _titlebar.toggle(); return true; };
+        this.title = function(title) {
+            if(typeof title !== 'undefined')
+                _titlebar.text(title);
+
+            return _titlebar.text();
+        };
+
+        this.showTitlebar = function() { _titlebar.parent().show(); return true; };
+        this.hideTitlebar = function() { _titlebar.parent().hide(); return true; };
+        this.toggleTitlebar = function() { _titlebar.parent().toggle(); return true; };
 
         this.width = function(width) {
             if(!width)
@@ -341,6 +367,12 @@ var app = new (function(package, AESKey, args, appID) {
             return true;
         };
 
+        this.resize = function(width, height) {
+            this.width(width);
+            this.height(height);
+            return ;
+        };
+
         this.show = function() { _window.show(); return true; };
         this.hide = function() { _window.hide(); return true; };
         this.toggle = function() { _window.toggle(); return true; };
@@ -351,11 +383,112 @@ var app = new (function(package, AESKey, args, appID) {
 
     })();
 
+    this.process = new (function() {
+
+        var _parent = window.app_win ? window.app_win.parent().parent() : $('#windows');
+
+        function _req(access) {
+            if(!app.hasAccess(['process', access])) {
+                var target;
+
+                for(var i in app.process)
+                    if(app.process[i] === arguments.callee.caller) {
+                        target = i;
+                        break;
+                    }
+
+                console.error('[app.process.' + target + '] Can\'t do action "' + access + '" on frames because privileges are insufficient');
+                return false;
+            }
+
+            return true;
+        }
+
+        this.exists = function(PID) {
+            if(!_req('exists'))
+                return undefined;
+
+            // using !! to convert a number to boolean (0 : false, != 0 : true)
+            return !!_parent.find('iframe[PID="' + PID + '"]').length;
+        };
+
+        this.list = function() {
+            if(!_req('list'))
+                return false;
+
+            var iframes = _parent.find('iframe');
+            var infos = [];
+
+            iframes.each(function(subject) {
+                subject = $(iframes[subject]);
+                var parent = subject.parent();
+
+                infos.push({
+                    title: parent.find('> .window-caption:first > .window-caption-title:first').text(),
+                    app: subject.attr('app'),
+                    PID: parseInt(subject.attr('pid')),
+                    started: parseInt(subject.attr('launched-time')),
+                    icon: parent.find('> .window-caption:first > .window-caption-icon:first img').attr('src'),
+                    uptime: Math.floor(Date.now() / 1000) - subject.attr('launched-time'),
+                    width: parent.width(),
+                    height: parent.height(),
+                    zIndex: parseInt(parent.css('z-index')),
+                    visible: parent.is(':visible'),
+                    hidden: !parent.is(':visible')
+                });
+            });
+
+            return infos;
+
+        };
+
+        this.read = function(PID) {
+
+            if(!_req('read'))
+                return false;
+
+            var subject = _parent.find('iframe[pid="' + PID + '"]');
+
+            if(!subject.length) {
+                console.error('[app.process.read] There is no application running with PID ' + PID);
+                return false;
+            }
+
+            return subject.contents().find('html:first')[0].outerHTML;
+
+        };
+
+        this.stop = function(PID, now) {
+
+            if(!_req(now ? 'force-stop' : 'stop'))
+                return false;
+
+            var subject = _parent.find('iframe[pid="' + PID + '"]');
+
+            if(!subject.length) {
+                console.error('[app.process.read] There is no application running with PID ' + PID);
+                return false;
+            }
+
+            if(now)
+                subject[0].contentWindow.app.exit();
+            else
+                subject[0].contentWindow.app.on('exit')();
+
+            return true;
+
+        };
+
+    });
+
     this.fs = new (function(server) {
 
         var _launchApplication = window.launchApplication;
 
         this.launchApplication = function(name, args) {
+
+            if(name.cutHTML() !== name)
+                return app.securityIssue(1);
 
             if(arguments.callee.caller === app.fs.open) {
                 if(app.on('open')(args.open, name, args) === false)
@@ -730,7 +863,7 @@ var app = new (function(package, AESKey, args, appID) {
                         fullpath: path
                     })
                 ]
-            }).bind('click', function() {
+            }).on('click', function() {
                 app.fs.open($(this).find('.list-title').attr('fullpath'));
             }).contextmenu(function(e) {
                 if(e.preventDefault)
@@ -757,46 +890,66 @@ var app = new (function(package, AESKey, args, appID) {
                         $.create('div', {
                             content: menu[i].title,
                             action: menu[i].path
-                        }).click(function() {
+                        }).on('click', function() {
                             app.fs.resolveContextMenu($(this).attr('action'));
                         })
                     )
                 }
 
                 $('#__context').css({
-                    top: event.clientY,
-                    left: event.clientX,
-                    display: 'inline-block',
-                    width: 'auto',
-                    'z-index': 999,
-                    'background-color': 'white'
+                    top: e.clientY,
+                    left: e.clientX,
+                    display: 'inline-block'
                 });
             });
         };
 
     })(this.server);
 
-    if(!window.parentFatal) {
+    if(!window.app_win) {
         this.windows = new (function() {
 
             var _windows = [];
 
             this.create = function(options) {
+                var notMovedWins = $('#windows > .window[not-moved]').length;
+                appWinID += 1;
+                windowsZIndex += 1;
+
                 var win = $($('#window-template')
                     .html()
                     .replace(/\{\{TITLE\}\}/, options.title || 'Untitled')
                     .replace(/\{\{CONTENT\}\}/, options.content || ''));
 
-                win.draggable().resizable();
+                win
+                    .css({
+                        top: ($('body').height() / 10) + (notMovedWins * 50),
+                        left: ($('body').width() / 10) + (notMovedWins * 50),
+                        'z-index': windowsZIndex
+                    })
+                    .attr({
+                        'win-id': appWinID,
+                        'not-moved': 'true'
+                    })
+                    .draggable({
+                        start: function() {
+                            $(this).removeAttr('not-moved');
+                        }
+                    })
+                    .resizable()
+                    .on('mousedown', function() {
+                        windowsZIndex += 1;
+                        $(this).css('z-index', windowsZIndex);
+                    })
 
-                win.find('.btn-close:first').click(function() {
-                    var content = $(this).parent().parent().find('.window-content');
+                    .find('.btn-close:first').click(function() {
+                        var content = $(this).parent().parent().find('.window-content');
 
-                    if(content[0].tagName.toLocaleLowerCase() === 'iframe')
-                        return content[0].contentWindow.app.on('exit')();
-                    else
-                        content.parent().remove();
-                });
+                        if(content[0].tagName.toLocaleLowerCase() === 'iframe')
+                            return content[0].contentWindow.app.on('exit')();
+                        else
+                            content.parent().remove();
+                    });
 
                 $('#windows').append(win);
                 return win;
@@ -811,6 +964,22 @@ var app = new (function(package, AESKey, args, appID) {
 
     this.init = function(AESKey) {
         _AESKey = AESKey;
+
+        _system = app.fs.readFile('.system');
+
+        if(!_system)
+            app.fatal('Can\'t get SIF', 'NearOS is unable to get the SIF (.system). Please try again.');
+
+        try {
+            _system = JSON.parse(_system);
+        }
+
+        catch(e) {
+            app.fatal('Bad SIF', 'The SIF (.system) is not a valid JSON file. Please correct it and try again.');
+        }
+
+        _system['full-name'] = _system['first-name'] + ' ' + _system['last-name'];
+        Object.fullFreeze(_system);
 
         this.reg = new (function(app) {
 
@@ -1051,6 +1220,19 @@ var app = new (function(package, AESKey, args, appID) {
             app.fs.downloadFile(path);
         };
 
+        this.rename = function(path) {
+            appSysTarget = path;
+            var filename = fs.filename(path);
+
+            app.prompt('Rename', 'Please input the new file name for this file :\n\n' + filename, function(path) {
+                if(!path)
+                    return ;
+
+                if(!fs.renameFile(appSysTarget, fs.parent(appSysTarget) + '/' + path))
+                    app.fatal('Rename error', 'Failed to rename <strong>' + fs.filename(appSysTarget) + '</strong> to <strong>' + path + '</strong>');
+            }, filename);
+        };
+
     })();
 
 })(package, window.AESKey, window.callArgs, window.appID);
@@ -1059,6 +1241,7 @@ delete window.AESKey;
 delete window.callArgs;
 delete window.appID;
 delete window.appQuit;
+delete window.app_win;
 
 var fs = app.fs; // file system alias
 
@@ -1072,5 +1255,3 @@ $('body').on('click', function() {
     if(!contextMenuHover)
         $('#__context').hide();
 });
-
-delete window.app_win;

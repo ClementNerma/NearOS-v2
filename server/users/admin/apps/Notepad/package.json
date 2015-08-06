@@ -1,6 +1,7 @@
 {
     "name": "Notepad",
     "version": "0.1",
+    "description": "Edit text files",
     "icon": "images/app-notepad.png",
     "developpers": ["Clément Nerma"],
     "license": "CC-BY-NC-ND-4.0",

@@ -58,15 +58,16 @@ body {
   overflow: auto;
   border-collapse: collapse;
   z-index: 3;
+  display: none;
 }
-/* line 55, ../sass/desktop.sass */
+/* line 56, ../sass/desktop.sass */
 #launcher-menu #launcher-apps {
   border-right: 1px solid darkgrey;
   width: 50%;
   padding: 0px;
   float: left;
 }
-/* line 61, ../sass/desktop.sass */
+/* line 62, ../sass/desktop.sass */
 #launcher-menu #launcher-profile {
   background-color: darkgrey;
   width: 50%;
@@ -75,10 +76,35 @@ body {
   float: right;
 }
 
-/* line 68, ../sass/desktop.sass */
+/* line 69, ../sass/desktop.sass */
 #windows > div.window {
   position: absolute;
   z-index: 3;
-  top: 10%;
-  left: 10%;
+}
+
+/* line 73, ../sass/desktop.sass */
+#login {
+  display: none;
+}
+
+/* line 76, ../sass/desktop.sass */
+#login-waiting {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1001;
+  display: none;
+  opacity: 0.5;
+}
+/* line 86, ../sass/desktop.sass */
+#login-waiting > div {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-top: -32px;
+  margin-left: -32px;
+  padding: 20px;
+  opacity: 1;
 }

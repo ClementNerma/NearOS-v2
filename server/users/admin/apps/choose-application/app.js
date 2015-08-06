@@ -48,8 +48,8 @@ for(i = 0; i < appsList.length; i += 1)
     $('#apps').append(
         fs
             .htmlShortcut('app:' + appsList[i])
-            .unbind('click')
-            .bind('click', function() {
+            .off('click')
+            .on('click', function() {
                 associate($(this).text());
             })
     );

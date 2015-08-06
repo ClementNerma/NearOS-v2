@@ -1,0 +1,12 @@
+{
+    "name": "ProcessManager",
+    "version": "0.1",
+    "description": "Manage processes",
+    "icon": "images/app-process-manager.png",
+    "developpers": ["Clément Nerma"],
+    "license": "CC-BY-NC-ND-4.0",
+    "permissions": {
+        "process": ["exists", "list", "stop", "force-stop"]
+    },
+    "access": []
+}

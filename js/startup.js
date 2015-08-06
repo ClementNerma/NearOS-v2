@@ -48,12 +48,20 @@ function launchApplication(name, args) {
         width: 800,
         height: 450
     })
+    .find('.window-caption-icon:first span').replaceWith(
+        $.create('img', {
+            src: application.icon
+        })
+    )
+
+    win
     .find('.window-content:first').replaceWith(
         $.create('iframe', {
             src: 'app.html',
             app: name,
             class: 'window-content',
             PID: PID,
+            'launched-time': Math.floor(Date.now() / 1000),
             sandbox: 'allow-scripts allow-same-origin'
         }).css({
             height: '100%',
@@ -61,6 +69,8 @@ function launchApplication(name, args) {
             overflow: 'auto',
             'background-color': 'white'
         }).on('load', function() {
+            $(this).attr('launched-time', Math.floor(Date.now() / 1000));
+
             var name = $(this).attr('app');
 
             this.contentWindow.parent = '';
@@ -93,8 +103,6 @@ function launchApplication(name, args) {
 
 var pubRSA, AESKey, ready;
 
-$('#launcher-menu, #login').hide();
-
 $('#launcher-icon').click(function() {
     var menu = $('#launcher-menu'),
         height = document.body.scrollHeight;
@@ -122,10 +130,12 @@ $('#launcher-icon').click(function() {
 function readyLoggedIn(session) {
     app.init(session.aes);
 
-    $('#login').remove();
+    $('#login, #login-waiting').remove();
     $('#taskbar').show(1000);
 
     ready = true;
+
+    var notif = app.notify('Loading', 'Loading interface...');
 
     var path = '/desktop';
     var files = fs.readDirectory(path);
@@ -177,6 +187,12 @@ function readyLoggedIn(session) {
             );
         }
     }
+
+    notif.close();
+    app.notify({
+        caption: 'Welcome back !',
+        content: 'Welcome <strong>' + app.user('full-name') + '</strong> !'
+    });
 }
 
 $('#taskbar').hide();
@@ -197,59 +213,72 @@ $.ajax({
 });
 
 function loginShow() {
-    if(window.location.href.substr(0, 8) === 'https://')
-        $('#login-encrypt').attr('checked', false);
+    /*if(window.location.href.substr(0, 8) === 'https://')
+        $('#login-encrypt').attr('checked', false);*/
 
-    $('#login').show().find('button[type="submit"]').on('click', function() {
-        var parent = $(this).parent().parent().parent();
+    $('#login').show();
 
-        var username = parent.find('input[data="username"]').val();
-        var password = parent.find('input[data="password"]').val();
+    $('#login button[type="submit"]').on('click', function() {
+        $('#login-waiting').css('display', 'block');
 
-        if(!username || !password)
-            parent.find('[data-role="dialog"]:first').data('dialog').open();
-        else {
-            var key, cryptedAESKey;
+        setTimeout(function() {
+            var parent = $('#login');
 
-            if($('#login-encrypt').is(':checked')) {
-                key = '';
+            var username = parent.find('input[data="username"]').val();
+            var password = parent.find('input[data="password"]').val();
 
-                for(var i = 0; i < 32; i += 1)
-                    key += 'abcdefghijklmnopqrstuvwxyz0123456789'.substr(Math.randomInt(32) - 1, 1);
-
-                cryptedAESKey = app.RSA.encrypt(key, pubRSA);
-            }
-
-            var ans = app.server('login', {
-                username: username,
-                password: password,
-                aeskey  : key ? cryptedAESKey : undefined
-            });
-
-            if(ans !== 'true')
-                parent.find('[data-role="dialog"]:last p').text(ans).parent().data('dialog').open();
+            if(!username || !password)
+                parent.find('[data-role="dialog"]:first').data('dialog').open();
             else {
-                console.info('Logged in !\nUsername : ' + username + '\nAES Key  : ' + key);
-                var request = key ? app.AES.encrypt('user_session', key) : 'user_session';
-                var response = key ? app.AES.decrypt(app.server(request), key) : app.server(request);
+                var key, cryptedAESKey;
 
-                try {
-                    var session = JSON.parse(response);
+                if($('#login-encrypt').is(':checked')) {
+                    key = '';
+
+                    for(var i = 0; i < 32; i += 1)
+                        key += 'abcdefghijklmnopqrstuvwxyz0123456789'.substr(Math.randomInt(32) - 1, 1);
+
+                    cryptedAESKey = app.RSA.encrypt(key, pubRSA);
                 }
 
-                catch(e) {
-                    console.error('Error during parsing session. Server said after request "' + request + '" :\n\n' + response + '\n\n' + e.stack);
-                    app.fatal('Bad session', 'Server returned a bad session - Can\'t get system informations');
-                }
+                var ans = app.server('login', {
+                    username: username,
+                    password: password,
+                    aeskey  : key ? cryptedAESKey : undefined
+                });
 
-                AESKey = session.aes;
-                readyLoggedIn(session);
+                if(ans !== 'true') {
+                    $('#login-waiting').hide();
+                    parent.find('[data-role="dialog"]:last p').text(ans).parent().data('dialog').open();
+                } else {
+                    console.info('Logged in !\nUsername : ' + username + '\nAES Key  : ' + key);
+                    var request = key ? app.AES.encrypt('user_session', key) : 'user_session';
+                    var response = key ? app.AES.decrypt(app.server(request), key) : app.server(request);
+
+                    try {
+                        var session = JSON.parse(response);
+                    }
+
+                    catch(e) {
+                        $('#login-waiting').hide();
+                        console.error('Error during parsing session. Server said after request "' + request + '" :\n\n' + response + '\n\n' + e.stack);
+                        app.fatal('Bad session', 'Server returned a bad session - Can\'t get system informations');
+                    }
+
+                    AESKey = session.aes;
+                    readyLoggedIn(session);
+                }
             }
-        }
+        });
     });
 
-    $('#login button[role="cancel"]').click(function() {
+    $('#login button[role="cancel"]').on('click', function() {
         $('#login').remove();
         app.fatal('Login canceled', 'You can now quit the page');
+    });
+
+    $('#login input').on('keydown', function(e) {
+        if(e.keyCode === 13)
+            $('#login button[type="submit"]').trigger('click');
     });
 }

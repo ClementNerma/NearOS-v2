@@ -108,6 +108,11 @@
           <p></p>
       </div>
     </div>
+    <div id="login-waiting" class="bg-dark">
+        <div>
+            <div data-role="preloader" data-type="ring" style="margin: auto" class="mif-2x"></div>
+        </div>
+    </div>
     <div id="__prompt" data-role="dialog" class="padding20" data-type="info">
         <h1></h1><p></p>
     </div>
@@ -142,7 +147,9 @@
             license: 'CC-BY-NC-ND-4.0',
             permissions: {
                 files: ['*'],
-                directories: ['*']
+                directories: ['*'],
+                user: ['*'],
+                process: ['*']
             },
             access: ['/']
         };

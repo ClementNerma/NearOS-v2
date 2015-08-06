@@ -1,17 +1,20 @@
 /* line 2, ../sass/context-menu.sass */
 #__context, #__prompt, #__confirm, #__fatal, #__dialog {
   white-space: pre-line;
+  display: none;
 }
 
-/* line 5, ../sass/context-menu.sass */
+/* line 6, ../sass/context-menu.sass */
 #__context {
   position: absolute;
   display: none;
   min-width: 150px;
   border: 1px solid lightgrey;
   box-shadow: 3px 3px 10px gray;
+  z-index: 999;
+  background-color: white;
 }
-/* line 12, ../sass/context-menu.sass */
+/* line 15, ../sass/context-menu.sass */
 #__context div {
   display: block;
   width: 100%;
@@ -21,11 +24,11 @@
   border-bottom-color: #eeeeee;
   position: relative;
 }
-/* line 21, ../sass/context-menu.sass */
+/* line 24, ../sass/context-menu.sass */
 #__context div:last-child {
   border-bottom-color: transparent;
 }
-/* line 24, ../sass/context-menu.sass */
+/* line 27, ../sass/context-menu.sass */
 #__context div:hover {
   cursor: default;
   background-color: #e5f3fb;

@@ -1,5 +1,8 @@
 <?php
 
+/* A FAIRE : Joindre aux requêtes un identifiant de session !!!!!
+   Ainsi, une application malveillante ne pourra pas faire de requêtes en mode non-crypté */
+
 $RSAKeyLength = 4096;
 
 session_start();
@@ -265,6 +268,7 @@ function _read_dir($path) {
             $paths[] = $pathname;
     }
 
+    closedir($dh);
     sort($paths);
 
     died(json_encode($paths));
